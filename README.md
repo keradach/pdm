@@ -18,32 +18,35 @@ Web application scaffold ที่จำลองแดชบอร์ด PDM (P
 
 ```
 pdm-project/
-├── docker-compose.yml          # orchestrate ทั้ง 3 service (oracle-db, backend, frontend)
-├── .env.example                 # ค่า env สำหรับ docker-compose (port, db credential)
-├── docker/nginx/default.conf    # nginx reverse-proxy หน้า Laravel (PHP-FPM)
+├── docker-compose.yml          # LOCAL: orchestrate ทั้ง 3 service (oracle-db, backend, frontend-node)
+├── docker-compose.prod.yml     # PRODUCTION: build static assets + nginx (ไม่ bind-mount source)
+├── .env                        # ค่า env สำหรับ docker-compose local (port, db credential)
+├── .env.production             # ค่า env สำหรับ docker-compose.prod.yml
+├── docker/nginx/default.conf   # nginx reverse-proxy หน้า Laravel (PHP-FPM)
 │
-├── backend/                     # Laravel 13 API (skeleton + โค้ดโปรเจกต์)
-│   ├── Dockerfile               # build PHP-FPM + oci8 (Oracle) — ไม่มี composer steps
-│   ├── .env.example              # ค่า env ของ Laravel (DB_CONNECTION=oracle, ...)
-│   ├── docker/entrypoint.sh     # รอ DB พร้อม -> migrate -> seed -> start php-fpm
+├── backend/                    # Laravel 13 API (skeleton + โค้ดโปรเจกต์)
+│   ├── Dockerfile              # build PHP-FPM + oci8 (Oracle) — ไม่มี composer steps
+│   ├── .env                    # ค่า env ของ Laravel (local)
+│   ├── .env.production         # ค่า env ของ Laravel (production)
+│   ├── docker/entrypoint.sh    # รอ DB พร้อม -> migrate -> seed -> start php-fpm
 │   ├── composer.json / composer.lock  # จัดการ dependencies บน host
-│   ├── vendor/                  # dependencies ที่ติดตั้งบน host (bind-mount เข้า container)
-│   ├── app/                     # โค้ด Laravel (controllers, models, ...)
-│   ├── config/                  # config ของ Laravel
-│   ├── database/                # migrations + seeders
-│   ├── routes/                  # routes
+│   ├── vendor/                 # dependencies ที่ติดตั้งบน host (bind-mount เข้า container)
+│   ├── app/                    # โค้ด Laravel (controllers, models, ...)
+│   ├── config/                 # config ของ Laravel
+│   ├── database/               # migrations + seeders
+│   ├── routes/                 # routes
 │   └── ...
 │
-└── frontend/                    # Vue 3 SPA
-    ├── Dockerfile                # npm build -> serve ด้วย nginx
+└── frontend/                   # Vue 3 SPA
+    ├── Dockerfile              # multi-stage: npm build -> serve ด้วย nginx (prod)
     ├── nginx.conf
     ├── src/
-    │   ├── components/           # HeaderBar, AlertBanner, StatCards, RiskMapCard,
-    │   │                         # DisasterGauges, TrendLineChart, DisasterPieChart,
-    │   │                         # TopProvincesBarChart, InfoPanel, PartnerLogos, ...
-    │   ├── views/Dashboard.vue   # ประกอบทุก component เป็นหน้าแดชบอร์ดตาม mockup
-    │   ├── stores/dashboard.js   # Pinia store เรียก API ทั้งหมด
-    │   └── services/api.js       # axios client
+    │   ├── components/         # HeaderBar, AlertBanner, StatCards, RiskMapCard,
+    │   │                       # DisasterGauges, TrendLineChart, DisasterPieChart,
+    │   │                       # TopProvincesBarChart, InfoPanel, PartnerLogos, ...
+    │   ├── views/Dashboard.vue # ประกอบทุก component เป็นหน้าแดชบอร์ดตาม mockup
+    │   ├── stores/dashboard.js # Pinia store เรียก API ทั้งหมด
+    │   └── services/api.js     # axios client
     └── ...
 ```
 
@@ -60,7 +63,9 @@ pdm-project/
 | GET    | `/api/reports/breakdown`     | สัดส่วนประเภทภัยพิบัติ                                     |
 | GET    | `/api/alerts`                | ประกาศแจ้งเตือนที่ active อยู่ (แบนเนอร์สีแดง)             |
 
-## วิธีรัน (Docker)
+---
+
+## วิธีรัน (Docker) — Local Development / Testing
 
 ### 1. ติดตั้ง Composer dependencies บน host
 
@@ -80,7 +85,7 @@ cp .env.example .env
 cp backend/.env.example backend/.env
 ```
 
-### 3. Build และรันทุก service
+### 3. Build และรันทุก service (local)
 
 ```bash
 docker compose up -d --build
@@ -93,11 +98,59 @@ docker compose up -d --build
 
 migration + seeder อัตโนมัติผ่าน `entrypoint.sh`
 
-### 5. เปิดใช้งาน:
+### 5. เปิดใช้งาน (local):
 
-- Frontend: <http://localhost:8080>
+- Frontend (Vite dev server + HMR): <http://localhost:5173>
 - Backend API: <http://localhost:8000/api/dashboard/summary>
 - Oracle DB: `localhost:1521` (service name `FREEPDB1`, user/pass ตามที่ตั้งใน `.env`)
+
+---
+
+## วิธีรัน (Docker) — Production
+
+### 1. เตรียมไฟล์ env สำหรับ production
+
+```bash
+cp .env.production .env.production.local   # แก้ไขค่าตามจริงของ production server
+cp backend/.env.production backend/.env.production.local
+```
+
+แก้ไขค่าที่สำคัญใน `backend/.env.production.local`:
+
+| ตัวแปร | คำอธิบาย |
+| ------ | -------- |
+| `APP_URL` | URL จริงของ backend (เช่น `https://api.example.com`) |
+| `APP_KEY` | ควรใส่ค่า `APP_KEY` ที่คงที่ (รัน `php artisan key:generate --show` ใน container แล้วนำมาใส่) เพื่อให้ key ไม่เปลี่ยนทุกครั้งที่ recreate container |
+| `DB_PASSWORD` | รหัสผ่าน Oracle DB จริง |
+| `SANCTUM_STATEFUL_DOMAINS` | domain ของ frontend (เช่น `example.com`) |
+| `FRONTEND_URL` | URL จริงของ frontend (เช่น `https://example.com`) |
+
+และแก้ไขใน `.env.production.local`:
+
+| ตัวแปร | คำอธิบาย |
+| ------ | -------- |
+| `VITE_API_BASE_URL` | URL ของ backend API ที่ frontend จะเรียก (เช่น `https://api.example.com/api`) |
+| `ORACLE_ARCH` | `arm64` หรือ `amd64` ตาม CPU ของ production server |
+
+### 2. Build และรัน (production)
+
+```bash
+docker compose --env-file .env.production.local -f docker-compose.prod.yml up -d --build
+```
+
+### 3. เปิดใช้งาน (production):
+
+- Frontend: <http://localhost:8080> (หรือ port ตาม `WEB_PORT` ใน `.env.production.local`)
+- Backend API: <http://localhost:8000/api/dashboard/summary> (หรือ port ตาม `API_PORT`)
+
+> **หมายเหตุ production**:
+> - `docker-compose.prod.yml` **ไม่ bind-mount** source code ของ backend — โค้ดถูก
+>   `COPY` เข้า image ตอน build ดังนั้นการแก้ไขโค้ดต้อง rebuild image ใหม่
+> - Frontend ถูก build เป็น static assets แล้ว serve ด้วย nginx (ไม่ใช่ Vite dev server)
+> - `VITE_API_BASE_URL` ถูกฝัง (bake) เข้า image ตอน build — ถ้าเปลี่ยนต้อง rebuild
+> - ข้อมูล Oracle ถูกเก็บใน named volume `oracle-data` (ไม่หายเมื่อ container ถูกลบ)
+
+---
 
 ## การจัดการ Composer (บน host)
 
@@ -119,9 +172,10 @@ composer update --ignore-platform-req=ext-oci8
 composer outdated
 ```
 
-> **หมายเหตุ**: `backend/` ถูก bind-mount เข้า container (`./backend:/var/www`)
+> **หมายเหตุ**: ในโหมด local `backend/` ถูก bind-mount เข้า container (`./backend:/var/www`)
 > ดังนั้นการแก้ไขโค้ดหรือ composer dependencies บน host จะมีผลทันที
 > โดยไม่ต้อง rebuild image ใหม่ (ยกเว้นแก้ Dockerfile เอง)
+> แต่ในโหมด production ต้อง rebuild image ใหม่ทุกครั้งที่แก้โค้ด
 
 ## รันแบบ Local (ไม่ใช้ Docker) เพื่อพัฒนา
 
@@ -146,8 +200,9 @@ npm run dev          # http://localhost:5173
   จาก `download.oracle.com` — หากเครือข่ายของคุณบล็อกโดเมนนี้ ให้ดาวน์โหลด
   Instant Client RPM ด้วยตนเองแล้วปรับ Dockerfile ให้ `COPY` จากไฟล์ในเครื่องแทน)
 - หากต้องต่อกับ Oracle instance ที่มีอยู่แล้ว (ไม่ใช้ container `oracle-db`)
-  ให้ลบ service `oracle-db` ออกจาก `docker-compose.yml` และแก้ `DB_HOST`,
-  `DB_PORT`, `DB_SERVICE_NAME` ใน `backend/.env` ให้ชี้ไปที่ฐานข้อมูลจริง
+  ให้ลบ service `oracle-db` ออกจาก `docker-compose.yml` / `docker-compose.prod.yml`
+  และแก้ `DB_HOST`, `DB_PORT`, `DB_SERVICE_NAME` ใน `backend/.env` (local)
+  หรือ `backend/.env.production` (prod) ให้ชี้ไปที่ฐานข้อมูลจริง
 
 ## สิ่งที่ควรทำต่อ (ยังไม่รวมในสโคปนี้)
 

@@ -7,9 +7,14 @@ until php artisan db:show > /dev/null 2>&1; do
   sleep 3
 done
 
-echo "[entrypoint] Generating app key (if missing)..."
-if ! grep -q "^APP_KEY=base64" .env 2>/dev/null; then
-  php artisan key:generate --force
+# Generate an APP_KEY and persist it into .env if neither the environment
+# nor the .env file provides one. The exported value is what Laravel uses.
+if [ -z "${APP_KEY:-}" ]; then
+  echo "[entrypoint] Generating app key (if missing)..."
+  if ! grep -q "^APP_KEY=base64" .env 2>/dev/null; then
+    php artisan key:generate --force
+  fi
+  export APP_KEY="$(grep "^APP_KEY=" .env | cut -d= -f2-)"
 fi
 
 echo "[entrypoint] Running migrations..."
