@@ -11,6 +11,7 @@
 /.zed
 /auth.json
 /backend/.env
+/backend/.env.example
 /backend/node_modules
 /backend/public/build
 /backend/public/fonts-manifest.dev.json
@@ -25,3 +26,5 @@ Homestead.yaml
 Thumbs.db
 .env
 .env.example
+/frontend/dist
+/frontend/node_modules
