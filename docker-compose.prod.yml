@@ -49,10 +49,10 @@ services:
     image: pdm-backend:latest
     container_name: pdm-prod-backend
     restart: unless-stopped
-    depends_on:
-      - oracle-db
+    # depends_on:
+    #   - oracle-db
     env_file:
-      - ./backend/.env.production.local
+      - ./backend/.env
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
