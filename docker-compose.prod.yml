@@ -2,14 +2,16 @@
 # PDM - Production Deployment
 # Laravel 13 (API) + Vue 3 (built static assets) + Oracle Database
 #
+# TLS (https) is terminated by the organization's central load balancer /
+# firewall, which forwards plain HTTP to this server on port 80.
+# The frontend nginx is the single entry point on port 80:
+#   /          -> Vue static assets
+#   /api/*     -> proxied to backend-nginx (Laravel API)
+#
 # Usage:
 #   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 #   Frontend Web: https://pdmrc.doae.go.th
 #   Backend API:  https://pdmrc.doae.go.th/api
-#
-# HTTPS is terminated by Caddy (auto Let's Encrypt). Caddy is the only
-# service exposing ports 80/443 to the host. backend-nginx and frontend
-# are only reachable inside the pdm-net network.
 # ==========================================================================
 
 services:
@@ -40,6 +42,7 @@ services:
   # Laravel 13 API backend (PHP-FPM)
   # Source code is baked into the image at build time (COPY . /var/www/),
   # NO bind mount - files cannot be modified at runtime.
+  # Uses .env.production (APP_URL=https://...) for correct https URLs.
   # ---------------------------------------------------------------------
   backend:
     build:
@@ -56,7 +59,7 @@ services:
     # depends_on:
     #   - oracle-db
     env_file:
-      - ./backend/.env
+      - ./backend/.env.production
     environment:
       APP_ENV: production
       APP_DEBUG: "false"
@@ -66,7 +69,7 @@ services:
   # ---------------------------------------------------------------------
   # nginx in front of the Laravel PHP-FPM backend
   # Serves the public/ directory from the shared backend-public volume.
-  # No host ports exposed - only reachable via Caddy on pdm-net.
+  # No host ports exposed - only reachable via frontend nginx on pdm-net.
   # ---------------------------------------------------------------------
   backend-nginx:
     image: nginx:1.27-alpine
@@ -84,7 +87,10 @@ services:
   # Vue 3 frontend - built as static assets, served by nginx.
   # Multi-stage build: node build stage -> nginx runtime. VITE_API_BASE_URL
   # is baked in at build time, so rebuilding is required if it changes.
-  # No host ports exposed - only reachable via Caddy on pdm-net.
+  #
+  # SINGLE ENTRY POINT on host port 80 (the org load balancer forwards
+  # plain HTTP here after terminating TLS). Serves static assets and
+  # proxies /api/* to backend-nginx.
   # ---------------------------------------------------------------------
   frontend:
     build:
@@ -95,29 +101,10 @@ services:
     image: pdm-frontend:latest
     container_name: pdm-prod-frontend
     restart: unless-stopped
-    networks:
-      - pdm-net
-
-  # ---------------------------------------------------------------------
-  # Caddy - HTTPS reverse proxy (Let's Encrypt auto TLS)
-  # The ONLY service exposing ports to the host. Routes:
-  #   https://pdmrc.doae.go.th        -> frontend (Vue static)
-  #   https://pdmrc.doae.go.th/api/*  -> backend-nginx (Laravel API)
-  # ---------------------------------------------------------------------
-  caddy:
-    image: caddy:2-alpine
-    container_name: pdm-prod-caddy
-    restart: unless-stopped
     depends_on:
       - backend-nginx
-      - frontend
     ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy-data:/data
-      - caddy-config:/config
+      - "${WEB_PORT:-80}:80"
     networks:
       - pdm-net
 
@@ -127,5 +114,3 @@ networks:
 
 volumes:
   oracle-data:
-  caddy-data:
-  caddy-config:
