@@ -4,7 +4,7 @@
 #
 # Usage:
 #   docker compose up -d --build
-#   Frontend (Vite HMR): http://localhost:5173
+#   Frontend (Vite HMR): http://localhost:80  (or just http://localhost)
 #   Backend API:         http://localhost:8000
 #
 # For production, use:
@@ -99,7 +99,8 @@ services:
   # Vue 3 frontend - Vite dev server with hot-reload.
   # `--host 0.0.0.0` makes Vite/HMR reachable from outside the container
   # (Docker Desktop on Mac and Linux VM alike).
-  #   http://localhost:5173
+  # Host port 80 is mapped to the container's Vite port 5173 so the local
+  # app is reachable at http://localhost (same URL as production).
   # ---------------------------------------------------------------------
   frontend-node:
     image: node:22-alpine
@@ -108,7 +109,7 @@ services:
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
-      - "${DEV_WEB_PORT:-5173}:5173"
+      - "${WEB_PORT:-80}:5173"
     volumes:
       - ./frontend:/app
       - ./frontend/node_modules:/app/node_modules
