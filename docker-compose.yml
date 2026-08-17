@@ -1,28 +1,21 @@
 # ==========================================================================
-# PDM - Local Development / Testing (default)
-# Laravel 13 (API) + Vue 3 (Vite dev server) + Oracle Database
+# PDM - Docker Compose (single file for LOCAL and PRODUCTION)
 #
-# Usage:
+# Mode is selected via COMPOSE_PROFILES in .env:
+#   COMPOSE_PROFILES=local       -> Vite dev server + bind mounts (hot reload)
+#   COMPOSE_PROFILES=production  -> built static assets + baked images
+#
+# Usage (same command for both modes):
 #   docker compose up -d --build
-#   Frontend (Vite HMR): http://localhost:80  (or just http://localhost)
-#   Backend API:         http://localhost:8000
-#
-# For production, use:
-#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
 # ==========================================================================
 
 services:
   # ---------------------------------------------------------------------
-  # Oracle Database (Oracle Free / XE image, published by Oracle on
-  # container-registry.oracle.com and mirrored on Docker Hub as
-  # "gvenzl/oracle-free"). You may replace this with a connection string
-  # to an existing Oracle instance instead of running it in Docker -
-  # in that case just remove this service and point DB_HOST/DB_PORT in
-  # backend/.env at your real database.
+  # Oracle Database (shared by both modes)
   # ---------------------------------------------------------------------
   oracle-db:
     image: gvenzl/oracle-free:23-slim
-    container_name: pdm-local-oracle-db
+    container_name: pdm-oracle-db
     restart: unless-stopped
     environment:
       ORACLE_PASSWORD: ${DB_PASSWORD:-OraclePDM_2025}
@@ -40,27 +33,19 @@ services:
     networks:
       - pdm-net
 
-  # ---------------------------------------------------------------------
-  # Laravel 13 API backend (PHP-FPM), fronted by nginx.
-  # Uses a single Dockerfile (backend/Dockerfile) based on Debian bookworm.
-  # Because the container carries its own distro, the same image runs on any
-  # Docker host: macOS (Apple Silicon M2 / Intel) and Linux VMs (e.g. Alpine
-  # Linux 3.23) alike. Only ORACLE_ARCH needs to match the host CPU:
-  #   arm64 (Apple Silicon / ARM VM) or amd64 (Intel/AMD VM).
-  #
-  # Composer dependencies are managed on the HOST (not inside the image):
-  #   cd backend && composer install
-  # The ./backend directory is bind-mounted into the container, so any
-  # composer changes on the host are immediately reflected at runtime.
-  # ---------------------------------------------------------------------
+  # =====================================================================
+  # LOCAL MODE (COMPOSE_PROFILES=local)
+  # Source code is bind-mounted -> edit on host, changes apply instantly.
+  # =====================================================================
+
+  # ---- Laravel backend (PHP-FPM) with bind mount ----
   backend:
+    profiles: ["local"]
     build:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        # PHP_BASE_IMAGE can be swapped via .env if a different base is wanted.
         PHP_BASE_IMAGE: ${PHP_BASE_IMAGE:-php:8.4-fpm-bookworm}
-        # Auto-detected from host via TARGETARCH; override via .env if needed.
         ORACLE_ARCH: ${ORACLE_ARCH:-}
         ORACLE_INSTANTCLIENT_VERSION: ${ORACLE_INSTANTCLIENT_VERSION:-23.26.3.0.0}
         ORACLE_INSTANTCLIENT_ROOT: ${ORACLE_INSTANTCLIENT_ROOT:-2326300}
@@ -78,10 +63,9 @@ services:
     networks:
       - pdm-net
 
-  # ---------------------------------------------------------------------
-  # nginx in front of the Laravel PHP-FPM backend
-  # ---------------------------------------------------------------------
+  # ---- nginx in front of Laravel (local) ----
   backend-nginx:
+    profiles: ["local"]
     image: nginx:1.27-alpine
     container_name: pdm-local-backend-nginx
     restart: unless-stopped
@@ -95,21 +79,16 @@ services:
     networks:
       - pdm-net
 
-  # ---------------------------------------------------------------------
-  # Vue 3 frontend - Vite dev server with hot-reload.
-  # `--host 0.0.0.0` makes Vite/HMR reachable from outside the container
-  # (Docker Desktop on Mac and Linux VM alike).
-  # Host port 80 is mapped to the container's Vite port 5173 so the local
-  # app is reachable at http://localhost (same URL as production).
-  # ---------------------------------------------------------------------
+  # ---- Vue 3 frontend - Vite dev server with hot-reload (local) ----
   frontend-node:
+    profiles: ["local"]
     image: node:22-alpine
     container_name: pdm-local-frontend-node
     restart: unless-stopped
     working_dir: /app
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
-      - "${WEB_PORT:-80}:5173"
+      - "${WEB_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
       - ./frontend/node_modules:/app/node_modules
@@ -117,6 +96,68 @@ services:
       - APP_ENV=local
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-http://localhost:8000/api}
+    networks:
+      - pdm-net
+
+  # =====================================================================
+  # PRODUCTION MODE (COMPOSE_PROFILES=production)
+  # Code is baked into images at build time -> NO bind mounts.
+  # Frontend serves built static assets via nginx.
+  # =====================================================================
+
+  # ---- Laravel backend (PHP-FPM) - baked image, no bind mount ----
+  backend-prod:
+    profiles: ["production"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      args:
+        PHP_BASE_IMAGE: ${PHP_BASE_IMAGE:-php:8.4-fpm-bookworm}
+        ORACLE_ARCH: ${ORACLE_ARCH:-}
+        ORACLE_INSTANTCLIENT_VERSION: ${ORACLE_INSTANTCLIENT_VERSION:-23.26.3.0.0}
+        ORACLE_INSTANTCLIENT_ROOT: ${ORACLE_INSTANTCLIENT_ROOT:-2326300}
+    image: pdm-backend:latest
+    container_name: pdm-prod-backend
+    restart: unless-stopped
+    depends_on:
+      - oracle-db
+    env_file:
+      - ./backend/.env
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+    networks:
+      - pdm-net
+
+  # ---- nginx in front of Laravel (production) ----
+  backend-nginx-prod:
+    profiles: ["production"]
+    image: nginx:1.27-alpine
+    container_name: pdm-prod-backend-nginx
+    restart: unless-stopped
+    depends_on:
+      - backend-prod
+    volumes:
+      - ./docker/nginx/default.prod.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./backend/public:/var/www/public:ro
+    networks:
+      - pdm-net
+
+  # ---- Vue 3 frontend - built static assets served by nginx (production) ----
+  frontend:
+    profiles: ["production"]
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://pdmrc.doae.go.th/api}
+    image: pdm-frontend:latest
+    container_name: pdm-prod-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend-nginx-prod
+    ports:
+      - "${WEB_PORT:-80}:80"
     networks:
       - pdm-net
 
