@@ -17,7 +17,7 @@ async function handleLogout() {
       <div class="logo">DOAE</div>
       <div class="title-block">
         <h1>
-          PDM <span class="sep">|</span>
+          PDMRC <span class="sep">|</span>
           <span class="th">ศูนย์ปฏิบัติการติดตามและแก้ไขปัญหาภัยพิบัติด้านพืช (ศตก)</span>
         </h1>
         <p class="subtitle">Plant Disaster Monitoring and Response Center (PDMRC)</p>
@@ -25,7 +25,7 @@ async function handleLogout() {
     </div>
     <div class="right-side">
       <a class="url-pill" href="https://pdm.doae.go.th" target="_blank" rel="noopener">
-        https://pdm.doae.go.th
+        https://pdmrc.doae.go.th
       </a>
 
       <!-- Not logged in: show login / register links -->

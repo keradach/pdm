@@ -75,11 +75,7 @@ const supportItems = [
       </aside>
 
       <section class="col-map">
-        <RiskMapCard
-          :provinces="provinces"
-          :selected="selectedProvince"
-          @select="store.selectProvince($event)"
-        />
+        <RiskMapCard :provinces="provinces" :selected="selectedProvince" @select="store.selectProvince($event)" />
 
         <div class="charts-row">
           <TrendLineChart :trend="trend" />
@@ -93,30 +89,14 @@ const supportItems = [
       </section>
 
       <aside class="col-panels">
-        <InfoPanel
-          title="ระบบแจ้งเตือนภัยและชี้เป้าหมาย (Early Warning & Risk Maps)"
-          header-icon="🔔"
-          color="var(--pdm-blue)"
-          :items="earlyWarningItems"
-        />
-        <InfoPanel
-          title="แดชบอร์ดติดตามสถานการณ์และการช่วยเหลือ (Monitoring & Assistance)"
-          header-icon="📊"
-          color="var(--pdm-green)"
-          :items="monitoringItems"
-        />
-        <InfoPanel
-          title="คลังสื่อความรู้และทางเลือกการเกษตร (Knowledge & Media)"
-          header-icon="📚"
-          color="var(--pdm-orange)"
-          :items="knowledgeItems"
-        />
-        <InfoPanel
-          title="ระบบสนับสนุนเจ้าหน้าที่ (Operation Support)"
-          header-icon="🧑\u200d💼"
-          color="var(--pdm-purple)"
-          :items="supportItems"
-        />
+        <InfoPanel title="ระบบแจ้งเตือนภัยและชี้เป้าหมาย (Early Warning & Risk Maps)" header-icon="🔔"
+          color="var(--pdm-blue)" :items="earlyWarningItems" />
+        <InfoPanel title="แดชบอร์ดติดตามสถานการณ์และการช่วยเหลือ (Monitoring & Assistance)" header-icon="📊"
+          color="var(--pdm-green)" :items="monitoringItems" />
+        <InfoPanel title="คลังสื่อความรู้และทางเลือกการเกษตร (Knowledge & Media)" header-icon="📚"
+          color="var(--pdm-orange)" :items="knowledgeItems" />
+        <InfoPanel title="ระบบสนับสนุนเจ้าหน้าที่ (Operation Support)" header-icon="🧑" color="var(--pdm-purple)"
+          :items="supportItems" />
       </aside>
     </div>
 
@@ -137,16 +117,28 @@ const supportItems = [
   align-items: start;
   padding-right: 22px;
 }
-.weather-slot { padding-top: 16px; }
 
-.error-banner, .loading-banner {
+.weather-slot {
+  padding-top: 16px;
+}
+
+.error-banner,
+.loading-banner {
   margin: 12px 22px 0;
   padding: 10px 16px;
   border-radius: var(--radius-md);
   font-size: 13px;
 }
-.error-banner { background: #fdecea; color: var(--pdm-red); }
-.loading-banner { background: #eef4ff; color: var(--pdm-blue); }
+
+.error-banner {
+  background: #fdecea;
+  color: var(--pdm-red);
+}
+
+.loading-banner {
+  background: #eef4ff;
+  color: var(--pdm-blue);
+}
 
 .main-grid {
   display: grid;
@@ -155,10 +147,31 @@ const supportItems = [
   gap: 16px;
   padding: 16px 22px;
 }
-.col-nav { grid-row: 1 / 3; }
-.col-map { grid-column: 2; grid-row: 1 / 3; display: flex; flex-direction: column; gap: 16px; }
-.col-status { grid-column: 3; grid-row: 1; }
-.col-panels { grid-column: 3; grid-row: 2; display: flex; flex-direction: column; gap: 12px; }
+
+.col-nav {
+  grid-row: 1 / 3;
+}
+
+.col-map {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.col-status {
+  grid-column: 3;
+  grid-row: 1;
+}
+
+.col-panels {
+  grid-column: 3;
+  grid-row: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
 .charts-row {
   display: grid;
@@ -167,9 +180,25 @@ const supportItems = [
 }
 
 @media (max-width: 1100px) {
-  .main-grid { grid-template-columns: 1fr; }
-  .col-nav, .col-map, .col-status, .col-panels { grid-column: 1; grid-row: auto; }
-  .charts-row { grid-template-columns: 1fr; }
-  .top-row { grid-template-columns: 1fr; padding-right: 0; }
+  .main-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .col-nav,
+  .col-map,
+  .col-status,
+  .col-panels {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .charts-row {
+    grid-template-columns: 1fr;
+  }
+
+  .top-row {
+    grid-template-columns: 1fr;
+    padding-right: 0;
+  }
 }
 </style>
