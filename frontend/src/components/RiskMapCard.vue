@@ -118,21 +118,25 @@ const drawProvinceRiskMarkers = () => {
     }).addTo(markersLayer);
 
     marker.bindPopup(`<b>${p.name_th}</b><br>ระดับความเสี่ยง: ${p.risk_level}`);
-    // marker.bindPopup(`<b>${p.province_name_th}</b><br>ระดับความเสี่ยง: ${p.risk_level}`);
     marker.on('click', () => emit('select-province', p));
   });
 };
 
 const drawWeatherStationMarkers = () => {
-  if (!props.weatherData?.data) return;
+  const dataSet = props.rainfallPeriod == 'today' ? props.weatherData?.data : props.rainfallData?.data;
+  if (!dataSet) return;
 
-  props.weatherData.data.forEach(station => {
+  dataSet.forEach(station => {
     const lat = station.station_lat;
     const lon = station.station_lon;
     if (lat == null || lon == null) return;
 
     let rainfallValue = null;
     let periodLabel = '';
+    var popupContent = '';
+    let displayDate = '';
+    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' };
+
 
     switch (props.rainfallPeriod) {
       case 'today':
@@ -162,15 +166,27 @@ const drawWeatherStationMarkers = () => {
       fillOpacity: 0.9
     }).addTo(markersLayer);
 
-    // const temp = station.observation?.temperature;
-    const temp = station.temperature;
-    const popupContent = `
+    if (props.rainfallPeriod === 'today') {
+      const tempDate = new Date(station.datetime_utc7);
+      const displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleString('th-TH', options)} น.` : ''
+      const temp = station.temperature;
+      popupContent = `${displayDate}<br>
       <b>สถานี: ${station.station_name_th}</b><br>
       จังหวัด: ${station.province_name_th}<br>
       <hr class="my-1">
-      <b>ฝน${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>
-      อุณหภูมิวันนี้: ${temp ?? 'N/A'} °C
-    `;
+      <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>
+     อุณหภูมิวันนี้: ${temp ?? 'N/A'} °C`;
+    } else {
+      const tempDate = new Date(station.date);
+      const displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}` : ''
+      popupContent = `${displayDate}<br>
+      <b>สถานี: ${station.station_name_th}</b><br>
+      จังหวัด: ${station.province_name_th}<br>
+      <hr class="my-1">
+      <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>
+      `;
+    }
+
     marker.bindPopup(popupContent);
   });
 };
@@ -183,21 +199,12 @@ const drawWeatherStationMarkers = () => {
     </div>
 
     <div class="card-body p-0" style="position: relative;">
-      <!-- <div class="btn-group btn-group-sm">
-        <button type="button" class="btn" :class="mapView === 'risk' ? 'btn-primary' : 'btn-outline-secondary'"
-          @click="$emit('setMapView', 'risk')">
-          <i class="bi bi-shield-fill-exclamation me-1"></i>ความเสี่ยงภัยพิบัติ
-        </button>
-        <button type="button" class="btn" :class="mapView === 'weather' ? 'btn-primary' : 'btn-outline-secondary'"
-          @click="$emit('setMapView', 'weather')">
-          <i class="bi bi-cloud-rain me-1"></i>สถานการณ์ฝน
-        </button>
-      </div> -->
       <div class="view-switcher">
         <button :class="{ active: mapView === 'risk' }"
           @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button>
         <button :class="{ active: mapView === 'weather' }" @click="$emit('setMapView', 'weather')">สถานการณ์ฝน</button>
       </div>
+
       <div id="map-container" ref="mapContainer"></div>
 
       <div v-if="mapView === 'weather'" class="weather-controls">
@@ -225,16 +232,6 @@ const drawWeatherStationMarkers = () => {
 </template>
 
 <style scoped>
-.map-card {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.card-title {
-  font-weight: 500;
-}
-
 #map-container {
   width: 100%;
   height: 100%;
@@ -324,7 +321,7 @@ const drawWeatherStationMarkers = () => {
   /* background-color: var(--bg-page); */
   /* border-radius: var(--radius-md); */
   padding: 4px;
-  border: 1px solid var(--border-soft);
+  /* border: 1px solid var(--border-soft); */
 }
 
 .view-switcher button {
@@ -335,7 +332,7 @@ const drawWeatherStationMarkers = () => {
   font-size: 13px;
   font-weight: 500;
   color: var(--text-muted);
-  cursor: pointer;
+  /* cursor: pointer; */
   transition: background-color 0.2s, color 0.2s;
   white-space: nowrap;
 }
