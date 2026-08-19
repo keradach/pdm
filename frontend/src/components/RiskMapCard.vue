@@ -1,123 +1,349 @@
 <script setup>
-import { computed } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
 
+// --- Props and Emits ---
 const props = defineProps({
-  provinces: { type: Array, default: () => [] },
-  selected: { type: Object, default: null },
-})
-const emit = defineEmits(['select'])
+  provinces: Array,
+  selectedProvince: Object,
+  weatherData: Object,
+  rainfallData: Object,
+  mapView: String, // 'risk' or 'weather'
+  rainfallPeriod: String, // 'today', 'yesterday', 'last_3_days', 'last_7_days'
+});
 
-// Rough bounding box of Thailand, used only to place demo markers.
-// Swap this component for Leaflet + a real Thailand GeoJSON layer
-// (province boundaries) for a production-grade choropleth map.
-const BOUNDS = { latMin: 5.6, latMax: 20.5, lngMin: 97.3, lngMax: 105.7 }
+const emit = defineEmits(['select-province', 'set-map-view', 'set-rainfall-period']);
 
-function positionOf(p) {
-  const x = ((p.lng - BOUNDS.lngMin) / (BOUNDS.lngMax - BOUNDS.lngMin)) * 100
-  const y = 100 - ((p.lat - BOUNDS.latMin) / (BOUNDS.latMax - BOUNDS.latMin)) * 100
-  return { left: `${x}%`, top: `${y}%` }
-}
+// --- Leaflet Map Setup ---
+const mapContainer = ref(null);
+let map = null;
+let markersLayer = new L.LayerGroup();
 
-const legend = [
-  { key: 'normal', label: 'ปกติ' },
-  { key: 'watch', label: 'เฝ้าระวัง' },
-  { key: 'high', label: 'เสี่ยงสูง' },
-  { key: 'critical', label: 'เกิดภัยแล้ว' },
-]
+const riskLevelColors = {
+  critical: '#dc3545',
+  high: '#fd7e14',
+  medium: '#ffc107',
+  low: '#198754',
+};
 
-const markers = computed(() =>
-  props.provinces.filter((p) => p.lat && p.lng).map((p) => ({ ...p, pos: positionOf(p) }))
-)
+const rainfallLevels = [
+  { min: 250, label: 'ฝนตกหนักมาก (> 250)', color: '#800080' }, // Purple
+  { min: 125, label: 'ฝนตกหนัก (125-250)', color: '#dc3545' }, // Red
+  { min: 65, label: 'ฝนตกค่อนข้างหนัก (65-125)', color: '#fd7e14' }, // Orange
+  { min: 35, label: 'ฝนตกปานกลาง (35-65)', color: '#ffc107' }, // Yellow
+  { min: 10, label: 'ฝนตกเล็กน้อย (10-35)', color: '#0dcaf0' }, // Cyan
+  { min: 0.1, label: 'ฝนโปรยปราย (0.1-10)', color: '#198754' }, // Green
+  { min: 0, label: 'ไม่มีฝน', color: '#6c757d' }, // Grey
+];
+
+const rainfallPeriods = [
+  { key: 'today', label: 'ฝนสะสมวันนี้' },
+  { key: 'yesterday', label: 'ฝนสะสมเมื่อวาน' },
+  { key: 'last_3_days', label: 'ฝนสะสม 3 วัน' },
+  { key: 'last_7_days', label: 'ฝนสะสม 7 วัน' },
+];
+
+const getRainfallColor = (value) => {
+  if (value === null || value === undefined || value <= 0) return rainfallLevels.find(l => l.min === 0).color;
+  for (const level of rainfallLevels) {
+    if (value > level.min) {
+      return level.color;
+    }
+  }
+  return rainfallLevels.find(l => l.min === 0).color;
+};
+
+onMounted(() => {
+  // Fix Leaflet's default icon path issue with bundlers
+  delete L.Icon.Default.prototype._getIconUrl;
+  L.Icon.Default.mergeOptions({
+    iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+    iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+    shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  });
+
+  map = L.map(mapContainer.value);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  }).addTo(map);
+
+  const thailandBounds = [[5.6, 97.3], [20.5, 105.7]];
+  map.fitBounds(thailandBounds);
+
+  markersLayer.addTo(map);
+
+  updateMap();
+});
+
+onBeforeUnmount(() => {
+  if (map) {
+    map.remove();
+  }
+});
+
+watch(() => [props.mapView, props.provinces, props.weatherData, props.rainfallData, props.rainfallPeriod], () => {
+  updateMap();
+}, { deep: true });
+
+watch(() => props.selectedProvince, (newVal) => {
+  // No-op: Keep the map zoomed out to the whole country.
+});
+
+const updateMap = () => {
+  if (!map) return;
+  markersLayer.clearLayers();
+
+  if (props.mapView === 'risk') {
+    drawProvinceRiskMarkers();
+  } else if (props.mapView === 'weather') {
+    drawWeatherStationMarkers();
+  }
+};
+
+const drawProvinceRiskMarkers = () => {
+  if (!props.provinces) return;
+  props.provinces.forEach(p => {
+    const lon = p.lng ?? p.lon;
+    if (p.lat == null || lon == null) return;
+
+    const color = riskLevelColors[p.risk_level] || '#6c757d';
+    const marker = L.circleMarker([p.lat, lon], {
+      radius: 8,
+      fillColor: color,
+      color: '#fff',
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.8
+    }).addTo(markersLayer);
+
+    marker.bindPopup(`<b>${p.name_th}</b><br>ระดับความเสี่ยง: ${p.risk_level}`);
+    // marker.bindPopup(`<b>${p.province_name_th}</b><br>ระดับความเสี่ยง: ${p.risk_level}`);
+    marker.on('click', () => emit('select-province', p));
+  });
+};
+
+const drawWeatherStationMarkers = () => {
+  if (!props.weatherData?.data) return;
+
+  props.weatherData.data.forEach(station => {
+    const lat = station.station_lat;
+    const lon = station.station_lon;
+    if (lat == null || lon == null) return;
+
+    let rainfallValue = null;
+    let periodLabel = '';
+
+    switch (props.rainfallPeriod) {
+      case 'today':
+        rainfallValue = station.precip_today;
+        periodLabel = 'วันนี้';
+        break;
+      case 'yesterday':
+      case 'last_3_days':
+      case 'last_7_days':
+        const history = props.rainfallData?.data.find(s => s.station_id === station.station_id);
+        if (history) {
+          const periodKeyMap = { yesterday: 'precip_yesterday', last_3_days: 'precip_3days', last_7_days: 'precip_7days' };
+          const key = periodKeyMap[props.rainfallPeriod];
+          rainfallValue = history[key];
+        }
+        periodLabel = rainfallPeriods.find(p => p.key === props.rainfallPeriod)?.label || '';
+        break;
+    }
+
+    const color = getRainfallColor(rainfallValue);
+    const marker = L.circleMarker([lat, lon], {
+      radius: 6,
+      fillColor: color,
+      color: '#000',
+      weight: 1,
+      opacity: 1,
+      fillOpacity: 0.9
+    }).addTo(markersLayer);
+
+    // const temp = station.observation?.temperature;
+    const temp = station.temperature;
+    const popupContent = `
+      <b>สถานี: ${station.station_name_th}</b><br>
+      จังหวัด: ${station.province_name_th}<br>
+      <hr class="my-1">
+      <b>ฝน${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>
+      อุณหภูมิวันนี้: ${temp ?? 'N/A'} °C
+    `;
+    marker.bindPopup(popupContent);
+  });
+};
 </script>
 
 <template>
   <div class="card map-card">
     <div class="card-header" style="background: var(--pdm-green-deep)">
-      🗺 แผนที่ความเสี่ยงภัยด้านพืช (Risk Map)
+      แผนที่ภาพรวม
     </div>
 
-    <div class="map-body">
-      <div class="legend">
-        <div v-for="l in legend" :key="l.key" class="legend-item">
-          <span class="dot" :class="`bg-risk-${l.key}`"></span>{{ l.label }}
-        </div>
+    <div class="card-body p-0" style="position: relative;">
+      <!-- <div class="btn-group btn-group-sm">
+        <button type="button" class="btn" :class="mapView === 'risk' ? 'btn-primary' : 'btn-outline-secondary'"
+          @click="$emit('setMapView', 'risk')">
+          <i class="bi bi-shield-fill-exclamation me-1"></i>ความเสี่ยงภัยพิบัติ
+        </button>
+        <button type="button" class="btn" :class="mapView === 'weather' ? 'btn-primary' : 'btn-outline-secondary'"
+          @click="$emit('setMapView', 'weather')">
+          <i class="bi bi-cloud-rain me-1"></i>สถานการณ์ฝน
+        </button>
+      </div> -->
+      <div class="view-switcher">
+        <button :class="{ active: mapView === 'risk' }"
+          @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button>
+        <button :class="{ active: mapView === 'weather' }" @click="$emit('setMapView', 'weather')">สถานการณ์ฝน</button>
       </div>
+      <div id="map-container" ref="mapContainer"></div>
 
-      <div class="map-canvas">
-        <button
-          v-for="m in markers"
-          :key="m.id"
-          class="marker"
-          :class="`bg-risk-${m.risk_level}`"
-          :style="m.pos"
-          :title="m.name_th"
-          @click="emit('select', m)"
-        ></button>
-      </div>
-
-      <div v-if="selected" class="detail-panel">
-        <div class="detail-header">
-          <span>📍</span> จังหวัด{{ selected.name_th }}
+      <div v-if="mapView === 'weather'" class="weather-controls">
+        <div class="rainfall-legend">
+          <h6>ปริมาณน้ำฝน (มม.)</h6>
+          <ul>
+            <li v-for="level in rainfallLevels" :key="level.label">
+              <span class="legend-color" :style="{ backgroundColor: level.color }"></span>
+              {{ level.label }}
+            </li>
+          </ul>
         </div>
-        <ul class="detail-list">
-          <li><span>อำเภอได้รับผลกระทบ</span><strong>{{ selected.amphoe_affected }} อำเภอ</strong></li>
-          <li><span>ตำบลได้รับผลกระทบ</span><strong>{{ selected.tambon_affected }} ตำบล</strong></li>
-          <li><span>เกษตรกรได้รับผลกระทบ</span><strong>{{ Number(selected.farmers_affected).toLocaleString() }} ราย</strong></li>
-          <li><span>พื้นที่เสียหาย</span><strong>{{ Number(selected.damaged_area_rai).toLocaleString() }} ไร่</strong></li>
-        </ul>
+        <div class="period-selector">
+          <h6>เลือกช่วงเวลา</h6>
+          <div class="btn-group-vertical w-100">
+            <button v-for="period in rainfallPeriods" :key="period.key" type="button" class="btn btn-sm text-start"
+              :class="{ active: rainfallPeriod === period.key }" @click="$emit('setRainfallPeriod', period.key)">
+              {{ period.label }}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <style scoped>
-.map-card { display: flex; flex-direction: column; overflow: hidden; }
-.map-body { position: relative; padding: 14px; }
-.legend {
-  display: flex; gap: 14px; flex-wrap: wrap;
-  font-size: 12px; margin-bottom: 10px; color: var(--text-muted);
-}
-.legend-item { display: flex; align-items: center; gap: 6px; }
-.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
-
-.map-canvas {
-  position: relative;
-  height: 420px;
-  background:
-    linear-gradient(160deg, #dceee1 0%, #cfe9e0 60%, #bfe0e6 100%);
-  border-radius: var(--radius-md);
+.map-card {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
-.marker {
-  position: absolute;
-  width: 14px; height: 14px;
-  border-radius: 50% 50% 50% 0;
-  transform: translate(-50%, -100%) rotate(-45deg);
-  border: 2px solid #fff;
-  cursor: pointer;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.3);
-}
-.marker:hover { transform: translate(-50%, -100%) rotate(-45deg) scale(1.3); }
 
-.detail-panel {
+.card-title {
+  font-weight: 500;
+}
+
+#map-container {
+  width: 100%;
+  height: 100%;
+  min-height: 600px;
+}
+
+.weather-controls {
   position: absolute;
-  top: 60px; right: 24px;
+  top: 10px;
+  right: 10px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rainfall-legend,
+.period-selector {
+  background: rgba(255, 255, 255, 0.9);
+  padding: 10px;
+  border-radius: 5px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
   width: 220px;
-  background: #fff;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-card);
-  overflow: hidden;
 }
-.detail-header {
-  background: var(--pdm-red);
+
+.rainfall-legend h6,
+.period-selector h6 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+  font-weight: bold;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+}
+
+.rainfall-legend ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.rainfall-legend li {
+  display: flex;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.legend-color {
+  width: 18px;
+  height: 18px;
+  margin-right: 8px;
+  border: 1px solid #ccc;
+}
+
+.btn-group-vertical .btn {
+  border-radius: 0;
+}
+
+/* .btn-group-vertical .btn:first-child {
+  border-top-left-radius: .25rem;
+  border-top-right-radius: .25rem;
+}
+
+.btn-group-vertical .btn:last-child {
+  border-top-right-radius: .25rem;
+  border-bottom-left-radius: .25rem;
+  border-bottom-right-radius: .25rem;
+} */
+
+.period-selector .btn {
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  color: #495057;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.period-selector .btn.active {
+  background-color: var(--pdm-green);
+  border-color: var(--pdm-green-deep);
   color: #fff;
-  padding: 8px 12px;
-  font-size: 13px;
-  font-weight: 700;
-  display: flex; align-items: center; gap: 6px;
+  font-weight: 600;
 }
-.detail-list { list-style: none; margin: 0; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
-.detail-list li { display: flex; justify-content: space-between; font-size: 12px; gap: 8px; }
-.detail-list span { color: var(--text-muted); }
+
+.view-switcher {
+  display: flex;
+  /* background-color: var(--bg-page); */
+  /* border-radius: var(--radius-md); */
+  padding: 4px;
+  border: 1px solid var(--border-soft);
+}
+
+.view-switcher button {
+  border: none;
+  background-color: #fff;
+  padding: 6px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  white-space: nowrap;
+}
+
+.view-switcher button.active {
+  background: var(--bg-page);
+  color: var(--pdm-green-deep);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
 </style>

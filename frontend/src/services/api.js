@@ -1,5 +1,7 @@
 import axios from "axios";
 
+const tmdApi = axios.create({ headers: { Accept: "application/json" } });
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
   headers: { Accept: "application/json" },
@@ -32,4 +34,10 @@ export default {
   getTrend: () => api.get("/reports/trend").then((r) => r.data),
   getBreakdown: () => api.get("/reports/breakdown").then((r) => r.data),
   getAlerts: () => api.get("/alerts").then((r) => r.data),
+
+  // ---- TMD API ----
+  getAwsNow: () =>
+    tmdApi.get("https://wxmap.tmd.go.th/api/awsnow").then((r) => r.data),
+  getAwsRainfall: () =>
+    tmdApi.get("https://wxmap.tmd.go.th/api/awsrainfall").then((r) => r.data),
 };

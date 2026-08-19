@@ -5,7 +5,6 @@ import { storeToRefs } from 'pinia'
 
 import HeaderBar from '@/components/HeaderBar.vue'
 import AlertBanner from '@/components/AlertBanner.vue'
-import WeatherCard from '@/components/WeatherCard.vue'
 import StatCards from '@/components/StatCards.vue'
 import SidebarNav from '@/components/SidebarNav.vue'
 import RiskMapCard from '@/components/RiskMapCard.vue'
@@ -17,8 +16,22 @@ import InfoPanel from '@/components/InfoPanel.vue'
 import PartnerLogos from '@/components/PartnerLogos.vue'
 
 const store = useDashboardStore()
-const { summary, gauges, provinces, topDamaged, trend, breakdown, alerts, selectedProvince, loading, error } =
-  storeToRefs(store)
+const {
+  summary,
+  gauges,
+  provinces,
+  topDamaged,
+  trend,
+  breakdown,
+  alerts,
+  selectedProvince,
+  loading,
+  error,
+  weatherData,
+  rainfallData,
+  mapView,
+  rainfallPeriod,
+} = storeToRefs(store)
 
 onMounted(() => store.fetchAll())
 
@@ -62,12 +75,13 @@ const supportItems = [
     <div v-if="error" class="error-banner">{{ error }}</div>
     <div v-if="loading" class="loading-banner">กำลังโหลดข้อมูล...</div>
 
-    <div class="top-row">
+    <!-- <div class="top-row">
       <StatCards :summary="summary" />
       <div class="weather-slot">
         <WeatherCard />
       </div>
-    </div>
+    </div> -->
+    <StatCards :summary="summary" />
 
     <div class="main-grid">
       <aside class="col-nav">
@@ -75,7 +89,10 @@ const supportItems = [
       </aside>
 
       <section class="col-map">
-        <RiskMapCard :provinces="provinces" :selected="selectedProvince" @select="store.selectProvince($event)" />
+        <RiskMapCard :provinces="provinces" :selected-province="selectedProvince" :weather-data="weatherData"
+          :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
+          @select-province="store.selectProvince($event)" @set-map-view="store.setMapView($event)"
+          @set-rainfall-period="store.setRainfallPeriod($event)" />
 
         <div class="charts-row">
           <TrendLineChart :trend="trend" />
@@ -110,7 +127,7 @@ const supportItems = [
   padding-bottom: 20px;
 }
 
-.top-row {
+/* .top-row {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 16px;
@@ -120,7 +137,7 @@ const supportItems = [
 
 .weather-slot {
   padding-top: 16px;
-}
+} */
 
 .error-banner,
 .loading-banner {
@@ -196,9 +213,9 @@ const supportItems = [
     grid-template-columns: 1fr;
   }
 
-  .top-row {
+  /* .top-row {
     grid-template-columns: 1fr;
     padding-right: 0;
-  }
+  } */
 }
 </style>
