@@ -60,6 +60,12 @@ async function handleLogout() {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+}
+
+.title-block {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .logo {
@@ -189,5 +195,68 @@ h1 {
 
 .logout-btn:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+@media (max-width: 640px) {
+  .header {
+    align-items: stretch;
+    gap: 12px;
+    padding: 12px 14px;
+  }
+
+  .brand {
+    align-items: flex-start;
+    gap: 10px;
+    width: 100%;
+  }
+
+  .title-block {
+    min-width: 0;
+  }
+
+  h1 {
+    font-size: 15px;
+    line-height: 1.35;
+    display: block;
+  }
+
+  .sep {
+    display: none;
+  }
+
+  .th {
+    display: block;
+    margin-top: 2px;
+  }
+
+  .th {
+    font-size: 12px;
+  }
+
+  .subtitle {
+    font-size: 10px;
+  }
+
+  .right-side {
+    align-items: stretch;
+    width: 100%;
+  }
+
+  .url-pill,
+  .user-menu,
+  .auth-nav {
+    justify-content: center;
+    width: 100%;
+  }
+
+  .url-pill {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .user-menu {
+    flex-wrap: wrap;
+    border-radius: var(--radius-md);
+  }
 }
 </style>

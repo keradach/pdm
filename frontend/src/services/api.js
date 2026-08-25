@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const tmdApi = axios.create({ headers: { Accept: "application/json" } });
+const thaiWaterApi = axios.create({ headers: { Accept: "application/json" } });
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
@@ -40,4 +41,8 @@ export default {
     tmdApi.get("https://wxmap.tmd.go.th/api/awsnow").then((r) => r.data),
   getAwsRainfall: () =>
     tmdApi.get("https://wxmap.tmd.go.th/api/awsrainfall").then((r) => r.data),
+  getDamWater: () =>
+    thaiWaterApi
+      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam")
+      .then((r) => r.data?.data?.dam_daily || []),
 };

@@ -29,6 +29,7 @@ const {
   error,
   weatherData,
   rainfallData,
+  damWaterData,
   mapView,
   rainfallPeriod,
 } = storeToRefs(store)
@@ -70,7 +71,7 @@ const supportItems = [
 <template>
   <div class="page">
     <HeaderBar />
-    <AlertBanner :alert="alerts?.[0]" />
+    <!-- <AlertBanner :alert="alerts?.[0]" /> -->
 
     <div v-if="error" class="error-banner">{{ error }}</div>
     <div v-if="loading" class="loading-banner">กำลังโหลดข้อมูล...</div>
@@ -81,7 +82,7 @@ const supportItems = [
         <WeatherCard />
       </div>
     </div> -->
-    <StatCards :summary="summary" />
+    <!-- <StatCards :summary="summary" /> -->
 
     <div class="main-grid">
       <aside class="col-nav">
@@ -91,8 +92,8 @@ const supportItems = [
       <section class="col-map">
         <RiskMapCard :provinces="provinces" :selected-province="selectedProvince" :weather-data="weatherData"
           :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
-          @select-province="store.selectProvince($event)" @set-map-view="store.setMapView($event)"
-          @set-rainfall-period="store.setRainfallPeriod($event)" />
+          :dam-water-data="damWaterData" @select-province="store.selectProvince($event)"
+          @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
 
         <div class="charts-row">
           <TrendLineChart :trend="trend" />
@@ -102,19 +103,20 @@ const supportItems = [
       </section>
 
       <section class="col-status">
-        <DisasterGauges :gauges="gauges" />
+        <!-- <DisasterGauges :gauges="gauges" /> -->
+        <aside class="col-panels">
+          <InfoPanel title="ระบบแจ้งเตือนภัยและชี้เป้าหมาย (Early Warning & Risk Maps)" header-icon="🔔"
+            color="var(--pdm-blue)" :items="earlyWarningItems" />
+          <InfoPanel title="แดชบอร์ดติดตามสถานการณ์และการช่วยเหลือ (Monitoring & Assistance)" header-icon="📊"
+            color="var(--pdm-green)" :items="monitoringItems" />
+          <InfoPanel title="คลังสื่อความรู้และทางเลือกการเกษตร (Knowledge & Media)" header-icon="📚"
+            color="var(--pdm-orange)" :items="knowledgeItems" />
+          <InfoPanel title="ระบบสนับสนุนเจ้าหน้าที่ (Operation Support)" header-icon="🧑" color="var(--pdm-purple)"
+            :items="supportItems" />
+        </aside>
       </section>
 
-      <aside class="col-panels">
-        <InfoPanel title="ระบบแจ้งเตือนภัยและชี้เป้าหมาย (Early Warning & Risk Maps)" header-icon="🔔"
-          color="var(--pdm-blue)" :items="earlyWarningItems" />
-        <InfoPanel title="แดชบอร์ดติดตามสถานการณ์และการช่วยเหลือ (Monitoring & Assistance)" header-icon="📊"
-          color="var(--pdm-green)" :items="monitoringItems" />
-        <InfoPanel title="คลังสื่อความรู้และทางเลือกการเกษตร (Knowledge & Media)" header-icon="📚"
-          color="var(--pdm-orange)" :items="knowledgeItems" />
-        <InfoPanel title="ระบบสนับสนุนเจ้าหน้าที่ (Operation Support)" header-icon="🧑" color="var(--pdm-purple)"
-          :items="supportItems" />
-      </aside>
+
     </div>
 
     <PartnerLogos />
@@ -159,10 +161,16 @@ const supportItems = [
 
 .main-grid {
   display: grid;
-  grid-template-columns: 200px 2fr 1fr;
+  grid-template-columns: minmax(180px, 200px) minmax(0, 2fr) minmax(260px, 1fr);
   grid-template-rows: auto auto;
   gap: 16px;
   padding: 16px 22px;
+}
+
+.main-grid>*,
+.col-map,
+.col-status {
+  min-width: 0;
 }
 
 .col-nav {
@@ -192,13 +200,38 @@ const supportItems = [
 
 .charts-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1280px) {
+  .main-grid {
+    grid-template-columns: 180px minmax(0, 1fr);
+  }
+
+  .col-nav {
+    grid-row: 1 / 3;
+  }
+
+  .col-map,
+  .col-panels {
+    grid-column: 2;
+  }
+
+  .col-map {
+    grid-row: 1;
+  }
+
+  .col-panels {
+    grid-row: 2;
+  }
+}
+
+@media (max-width: 900px) {
   .main-grid {
     grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 12px 14px;
   }
 
   .col-nav,
@@ -213,9 +246,38 @@ const supportItems = [
     grid-template-columns: 1fr;
   }
 
+  .error-banner,
+  .loading-banner {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+
   /* .top-row {
     grid-template-columns: 1fr;
     padding-right: 0;
   } */
+}
+
+@media (max-width: 480px) {
+  .page {
+    padding-bottom: 12px;
+  }
+
+  .stat-row {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .main-grid {
+    padding: 10px;
+  }
+
+  .error-banner,
+  .loading-banner {
+    margin-left: 10px;
+    margin-right: 10px;
+  }
 }
 </style>

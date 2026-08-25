@@ -38,20 +38,71 @@ const cards = computed(() => {
   gap: 12px;
   padding: 16px 22px 0;
 }
+
 .stat-card {
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
 }
+
 .icon {
-  width: 42px; height: 42px;
+  width: 42px;
+  height: 42px;
   border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 20px;
   flex-shrink: 0;
 }
-.value { font-size: 20px; font-weight: 800; font-family: var(--font-display); }
-.unit { font-size: 11px; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
-.label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+.value {
+  font-size: 20px;
+  font-weight: 800;
+  font-family: var(--font-display);
+}
+
+.unit {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+.label {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+@media (max-width: 480px) {
+  .stat-row {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 12px 14px 0;
+  }
+
+  .stat-card {
+    gap: 8px;
+    padding: 10px;
+    min-width: 0;
+  }
+
+  .icon {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .value {
+    font-size: 17px;
+    white-space: nowrap;
+  }
+
+  .unit,
+  .label {
+    font-size: 10px;
+  }
+}
 </style>

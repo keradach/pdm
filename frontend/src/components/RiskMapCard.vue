@@ -9,7 +9,8 @@ const props = defineProps({
   selectedProvince: Object,
   weatherData: Object,
   rainfallData: Object,
-  mapView: String, // 'risk' or 'weather'
+  damWaterData: Array,
+  mapView: String, // 'risk', 'weather', or 'dam'
   rainfallPeriod: String, // 'today', 'yesterday', 'last_3_days', 'last_7_days'
 });
 
@@ -42,6 +43,14 @@ const rainfallPeriods = [
   { key: 'yesterday', label: 'ฝนสะสมเมื่อวาน' },
   { key: 'last_3_days', label: 'ฝนสะสม 3 วัน' },
   { key: 'last_7_days', label: 'ฝนสะสม 7 วัน' },
+];
+
+const damWaterLevels = [
+  { max: 30, label: 'น้อยวิกฤต (<= 30%)', color: '#0d6efd' },
+  { max: 50, label: 'น้อย (> 30-50%)', color: '#198754' },
+  { max: 80, label: 'ปานกลาง (> 50-80%)', color: '#ffc107' },
+  { max: 100, label: 'มาก (> 80-100%)', color: '#fd7e14' },
+  { max: Infinity, label: 'ล้นเขื่อน (> 100%)', color: '#dc3545' },
 ];
 
 const getRainfallColor = (value) => {
@@ -82,7 +91,7 @@ onBeforeUnmount(() => {
   }
 });
 
-watch(() => [props.mapView, props.provinces, props.weatherData, props.rainfallData, props.rainfallPeriod], () => {
+watch(() => [props.mapView, props.provinces, props.weatherData, props.rainfallData, props.damWaterData, props.rainfallPeriod], () => {
   updateMap();
 }, { deep: true });
 
@@ -98,7 +107,43 @@ const updateMap = () => {
     drawProvinceRiskMarkers();
   } else if (props.mapView === 'weather') {
     drawWeatherStationMarkers();
+  } else if (props.mapView === 'dam') {
+    drawDamWaterMarkers();
   }
+};
+
+const getDamWaterLevel = (value) => {
+  const numericValue = Number(value);
+  if (!Number.isFinite(numericValue)) return null;
+  return damWaterLevels.find(level => numericValue <= level.max) || damWaterLevels[0];
+};
+
+const drawDamWaterMarkers = () => {
+  if (!props.damWaterData) return;
+
+  props.damWaterData.forEach(damRecord => {
+    const dam = damRecord.dam;
+    const level = getDamWaterLevel(damRecord.dam_storage_percent);
+    if (!dam || !level || dam.dam_lat == null || dam.dam_long == null) return;
+
+    const marker = L.circleMarker([dam.dam_lat, dam.dam_long], {
+      radius: 7,
+      fillColor: level.color,
+      color: '#fff',
+      weight: 2,
+      opacity: 1,
+      fillOpacity: 0.9
+    }).addTo(markersLayer);
+
+    const damName = dam.dam_name?.th || dam.dam_name?.en || 'ไม่ระบุชื่อเขื่อน';
+    const storage = damRecord.dam_storage ?? 'N/A';
+    const capacity = dam.normal_storage ?? dam.max_storage ?? 'N/A';
+    marker.bindPopup(`<b>เขื่อน${damName}</b><br>
+      ระดับ: ${level.label}<br>
+      ปริมาณน้ำ: ${storage} ล้าน ลบ.ม.<br>
+      ความจุปกติ: ${capacity} ล้าน ลบ.ม.<br>
+      วันที่ข้อมูล: ${damRecord.dam_date || 'N/A'}`);
+  });
 };
 
 const drawProvinceRiskMarkers = () => {
@@ -134,7 +179,6 @@ const drawWeatherStationMarkers = () => {
     let rainfallValue = null;
     let periodLabel = '';
     var popupContent = '';
-    let displayDate = '';
     const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' };
 
 
@@ -200,9 +244,11 @@ const drawWeatherStationMarkers = () => {
 
     <div class="card-body p-0" style="position: relative;">
       <div class="view-switcher">
-        <button :class="{ active: mapView === 'risk' }"
-          @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button>
-        <button :class="{ active: mapView === 'weather' }" @click="$emit('setMapView', 'weather')">สถานการณ์ฝน</button>
+        <!-- <button :class="{ active: mapView === 'risk' }"
+          @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button> -->
+        <button :class="{ active: mapView === 'weather' }"
+          @click="$emit('setMapView', 'weather')">ปริมาณน้ำฝนจากกรมอุตุนิยมวิทยา</button>
+        <button :class="{ active: mapView === 'dam' }" @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
       </div>
 
       <div id="map-container" ref="mapContainer"></div>
@@ -227,6 +273,17 @@ const drawWeatherStationMarkers = () => {
           </div>
         </div>
       </div>
+      <div v-if="mapView === 'dam'" class="weather-controls">
+        <div class="rainfall-legend">
+          <h6>ปริมาณน้ำในเขื่อน (%)</h6>
+          <ul>
+            <li v-for="level in damWaterLevels" :key="level.label">
+              <span class="legend-color" :style="{ backgroundColor: level.color }"></span>
+              {{ level.label }}
+            </li>
+          </ul>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -235,7 +292,12 @@ const drawWeatherStationMarkers = () => {
 #map-container {
   width: 100%;
   height: 100%;
-  min-height: 600px;
+  min-height: clamp(360px, 55vw, 600px);
+}
+
+.map-card {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .weather-controls {
@@ -318,6 +380,7 @@ const drawWeatherStationMarkers = () => {
 
 .view-switcher {
   display: flex;
+  flex-wrap: wrap;
   /* background-color: var(--bg-page); */
   /* border-radius: var(--radius-md); */
   padding: 4px;
@@ -342,5 +405,45 @@ const drawWeatherStationMarkers = () => {
   color: var(--pdm-green-deep);
   font-weight: 600;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 640px) {
+  #map-container {
+    height: 58vw;
+    min-height: 280px;
+    max-height: 420px;
+  }
+
+  .weather-controls {
+    position: relative;
+    top: auto;
+    right: auto;
+    padding: 10px;
+    background: var(--bg-page);
+  }
+
+  .rainfall-legend,
+  .period-selector {
+    width: 100%;
+  }
+
+  .view-switcher {
+    gap: 4px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .view-switcher button {
+    flex: 0 0 auto;
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: 12px;
+  }
+
+  .card-header {
+    padding: 12px 14px;
+    font-size: 14px;
+  }
 }
 </style>

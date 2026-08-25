@@ -15,7 +15,8 @@ export const useDashboardStore = defineStore("dashboard", {
     selectedProvince: null,
     weatherData: null,
     rainfallData: null,
-    mapView: "risk", // 'risk' or 'weather'
+    damWaterData: [],
+    mapView: "weather", // 'risk' or 'weather or 'dam'
     rainfallPeriod: "today", // 'today', 'yesterday', 'last_3_days', 'last_7_days'
   }),
 
@@ -34,6 +35,7 @@ export const useDashboardStore = defineStore("dashboard", {
           alerts,
           weatherData,
           rainfallData,
+          damWaterData,
         ] = await Promise.all([
           api.getSummary(),
           api.getGauges(),
@@ -44,6 +46,7 @@ export const useDashboardStore = defineStore("dashboard", {
           api.getAlerts(),
           api.getAwsNow(),
           api.getAwsRainfall(),
+          api.getDamWater(),
         ]);
         this.summary = summary;
         this.gauges = gauges;
@@ -54,6 +57,7 @@ export const useDashboardStore = defineStore("dashboard", {
         this.alerts = alerts;
         this.weatherData = weatherData;
         this.rainfallData = rainfallData;
+        this.damWaterData = damWaterData;
         this.selectedProvince =
           provinces.find((p) => p.risk_level === "critical") ||
           provinces[0] ||

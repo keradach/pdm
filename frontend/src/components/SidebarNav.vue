@@ -14,13 +14,8 @@ const active = ref(1)
 
 <template>
   <nav class="side-nav">
-    <button
-      v-for="item in items"
-      :key="item.n"
-      class="nav-item"
-      :class="{ active: active === item.n }"
-      @click="active = item.n"
-    >
+    <button v-for="item in items" :key="item.n" class="nav-item" :class="{ active: active === item.n }"
+      @click="active = item.n">
       <span class="num" :style="{ background: item.color }">{{ item.n }}</span>
       <span class="icon">{{ item.icon }}</span>
       <span class="text">
@@ -37,6 +32,7 @@ const active = ref(1)
   flex-direction: column;
   gap: 10px;
 }
+
 .nav-item {
   display: flex;
   align-items: center;
@@ -49,17 +45,58 @@ const active = ref(1)
   text-align: left;
   transition: box-shadow .15s, border-color .15s;
 }
-.nav-item:hover { box-shadow: var(--shadow-card); }
-.nav-item.active { border-color: var(--pdm-green); background: #f2f9f4; }
+
+.nav-item:hover {
+  box-shadow: var(--shadow-card);
+}
+
+.nav-item.active {
+  border-color: var(--pdm-green);
+  background: #f2f9f4;
+}
+
 .num {
-  width: 22px; height: 22px;
+  width: 22px;
+  height: 22px;
   border-radius: 50%;
-  color: #fff; font-size: 11px; font-weight: 700;
-  display: flex; align-items: center; justify-content: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
-.icon { font-size: 18px; }
-.text { display: flex; flex-direction: column; line-height: 1.3; }
-.text strong { font-size: 13px; }
-.text small { font-size: 11px; color: var(--text-muted); }
+
+.icon {
+  font-size: 18px;
+}
+
+.text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+
+.text strong {
+  font-size: 13px;
+}
+
+.text small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+@media (max-width: 900px) {
+  .side-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .nav-item {
+    flex: 0 0 190px;
+  }
+}
 </style>
