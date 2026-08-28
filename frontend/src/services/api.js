@@ -33,7 +33,10 @@ export default {
   getTopDamaged: (limit = 10) =>
     api.get(`/provinces/top-damaged?limit=${limit}`).then((r) => r.data),
   getTrend: () => api.get("/reports/trend").then((r) => r.data),
-  getBreakdown: () => api.get("/reports/breakdown").then((r) => r.data),
+  getBreakdown: () =>
+    api
+      .get("https://efarmer.doae.go.th/api/disaster/breakdown")
+      .then((r) => r.data),
   getAlerts: () => api.get("/alerts").then((r) => r.data),
 
   // ---- TMD API ----

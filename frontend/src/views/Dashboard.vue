@@ -94,7 +94,6 @@ const supportItems = [
           :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
           :dam-water-data="damWaterData" @select-province="store.selectProvince($event)"
           @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
-
         <div class="charts-row">
           <TrendLineChart :trend="trend" />
           <DisasterPieChart :breakdown="breakdown" />
@@ -200,8 +199,13 @@ const supportItems = [
 
 .charts-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
   gap: 12px;
+}
+
+.charts-row>* {
+  min-width: 0;
+  width: 100%;
 }
 
 @media (max-width: 1280px) {

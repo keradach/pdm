@@ -9,7 +9,9 @@ const props = defineProps({
   breakdown: { type: Array, default: () => [] }, // [{label, total_rai}]
 })
 
-const PALETTE = ['#e8770f', '#2f6fb0', '#6f4fa3', '#2e7d4f', '#d1352b']
+console.log(props.breakdown);
+
+const PALETTE = ['#e8770f', '#2f6fb0', '#6f4fa3', '#2e7d4f', '#d1352b', '#f2c80f', '#b0b0b0', '#f2c80f', '#b0b0b0', '#f2c80f', '#b0b0b0']
 
 const chartData = computed(() => ({
   labels: props.breakdown.map((b) => b.label),
@@ -41,7 +43,17 @@ const options = {
 </template>
 
 <style scoped>
-.chart-card { padding: 14px; }
-.chart-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
-.chart-wrap { height: 210px; }
+.chart-card {
+  padding: 14px;
+}
+
+.chart-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.chart-wrap {
+  height: 210px;
+}
 </style>
