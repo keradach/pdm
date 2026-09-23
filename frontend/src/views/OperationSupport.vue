@@ -65,7 +65,7 @@ function barClass(rate) {
         <div class="grid-2">
           <section class="card block">
             <div class="card-title" :style="{ color: theme.color }">🚚 ปัจจัยพันธุ์พืชสำรอง</div>
-            <table class="mock-table">
+            <!-- <table class="mock-table">
               <thead>
                 <tr>
                   <th>รายการ</th>
@@ -85,12 +85,12 @@ function barClass(rate) {
                   </td>
                 </tr>
               </tbody>
-            </table>
+            </table> -->
           </section>
 
           <section class="card block">
             <div class="card-title" :style="{ color: theme.color }">🚚 สต็อกชีวภัณฑ์</div>
-            <table class="mock-table">
+            <!-- <table class="mock-table">
               <thead>
                 <tr>
                   <th>รายการ</th>
@@ -110,7 +110,7 @@ function barClass(rate) {
                   </td>
                 </tr>
               </tbody>
-            </table>
+            </table> -->
           </section>
         </div>
 

@@ -64,7 +64,7 @@ const guides = [
         <div class="grid-2">
           <section class="card block">
             <div class="card-title" :style="{ color: theme.color }">📰 คลังความรู้สู้ภัยน้ำท่วม</div>
-            <ul class="media-list">
+            <!-- <ul class="media-list">
               <li v-for="m in flood" :key="m.title">
                 <span class="media-icon">{{ m.icon }}</span>
                 <span class="media-body">
@@ -72,12 +72,12 @@ const guides = [
                   <small>{{ m.type }} · {{ m.date }} · {{ m.views }} ครั้ง</small>
                 </span>
               </li>
-            </ul>
+            </ul> -->
           </section>
 
           <section class="card block">
             <div class="card-title" :style="{ color: theme.color }">🎞 คลังความรู้สู้ภัยแล้ง</div>
-            <ul class="media-list">
+            <!-- <ul class="media-list">
               <li v-for="g in drought" :key="g.title">
                 <span class="media-icon">{{ g.icon }}</span>
                 <span class="media-body">
@@ -85,7 +85,7 @@ const guides = [
                   <small>{{ g.tag }}</small>
                 </span>
               </li>
-            </ul>
+            </ul> -->
           </section>
         </div>
 
