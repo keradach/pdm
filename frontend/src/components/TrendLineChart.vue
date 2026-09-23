@@ -52,15 +52,25 @@ const options = {
 
 <template>
   <div class="card chart-card">
-    <div class="chart-title">แนวโน้มพื้นที่เสียหาย (ล้านไร่)</div>
+    <div class="chart-title">ระบบการระบาดศตรูพืช PPSF</div>
     <div class="chart-wrap">
-      <Line :data="chartData" :options="options" />
+      <!-- <Line :data="chartData" :options="options" /> -->
     </div>
   </div>
 </template>
 
 <style scoped>
-.chart-card { padding: 14px; }
-.chart-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
-.chart-wrap { height: 200px; }
+.chart-card {
+  padding: 14px;
+}
+
+.chart-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.chart-wrap {
+  height: 200px;
+}
 </style>

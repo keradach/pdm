@@ -1,23 +1,35 @@
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+
+const route = useRoute()
+const router = useRouter()
 
 const items = [
-  { n: 1, icon: '🏠', title: 'หน้าแรก', subtitle: 'ภาพรวมสถานการณ์', color: 'var(--pdm-orange)' },
-  { n: 2, icon: '🗺', title: 'ระบบแจ้งเตือนภัย', subtitle: 'และชี้เป้าหมาย', color: 'var(--pdm-blue)' },
-  { n: 3, icon: '📊', title: 'แดชบอร์ดติดตาม', subtitle: 'สถานการณ์และการช่วยเหลือ', color: 'var(--pdm-green)' },
-  { n: 4, icon: '📚', title: 'คลังสื่อความรู้', subtitle: 'และทางเลือกการเกษตร', color: 'var(--pdm-orange)' },
-  { n: 5, icon: '🧑\u200d💼', title: 'ระบบสนับสนุน', subtitle: 'เจ้าหน้าที่', color: 'var(--pdm-purple)' },
+  { route: '/', title: 'หน้าแรก', subtitle: 'ภาพรวมสถานการณ์', color: 'var(--pdm-orange)', icon: 'home' },
+  { route: '/warning', title: 'ระบบแจ้งเตือนภัย', subtitle: '', color: 'var(--pdm-blue)', icon: 'map' },
+  // { route: '/monitoring', title: 'แดชบอร์ดติดตาม', subtitle: 'สถานการณ์และการช่วยเหลือ', color: 'var(--pdm-green)', icon: 'chart' },
+  { route: '/knowledge', title: 'คลังความรู้สู้ภัยพิบัติด้านพืช', subtitle: '', color: 'var(--pdm-orange)', icon: 'book' },
+  { route: '/support', title: 'ระบบสนับสนุนเจ้าหน้าที่', subtitle: '', color: 'var(--pdm-purple)', icon: 'staff' },
 ]
 
-const active = ref(1)
+const emoji = {
+  home: '\u{1F3E0}',
+  map: '\u{1F5FA}',
+  chart: '\u{1F4CA}',
+  book: '\u{1F4DA}',
+  staff: '\u{1F9D1}\u200D\u{1F4BC}',
+}
+
+const active = computed(() => route.path)
 </script>
 
 <template>
   <nav class="side-nav">
-    <button v-for="item in items" :key="item.n" class="nav-item" :class="{ active: active === item.n }"
-      @click="active = item.n">
-      <span class="num" :style="{ background: item.color }">{{ item.n }}</span>
-      <span class="icon">{{ item.icon }}</span>
+    <button v-for="(item, index) in items" :key="item.route" class="nav-item" :class="{ active: active === item.route }"
+      @click="router.push(item.route)">
+      <!-- <span class="num" :style="{ background: item.color }">{{ index + 1 }}</span> -->
+      <span class="icon">{{ emoji[item.icon] }}</span>
       <span class="text">
         <strong>{{ item.title }}</strong>
         <small>{{ item.subtitle }}</small>

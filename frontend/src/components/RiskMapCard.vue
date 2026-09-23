@@ -103,7 +103,7 @@ const updateMap = () => {
   if (!map) return;
   markersLayer.clearLayers();
 
-  if (props.mapView === 'risk') {
+  if (props.mapView === 'temperature') {
     drawProvinceRiskMarkers();
   } else if (props.mapView === 'weather') {
     drawWeatherStationMarkers();
@@ -239,7 +239,7 @@ const drawWeatherStationMarkers = () => {
 <template>
   <div class="card map-card">
     <div class="card-header" style="background: var(--pdm-green-deep)">
-      แผนที่ภาพรวม
+      รู้ข้อมูลก่อนเกิดภัย
     </div>
 
     <div class="card-body p-0" style="position: relative;">
@@ -249,6 +249,8 @@ const drawWeatherStationMarkers = () => {
         <button :class="{ active: mapView === 'weather' }"
           @click="$emit('setMapView', 'weather')">ปริมาณน้ำฝนจากกรมอุตุนิยมวิทยา</button>
         <button :class="{ active: mapView === 'dam' }" @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
+        <button :class="{ active: mapView === 'temperature' }"
+          @click="$emit('setMapView', 'temperature')">อุณหภูมิ</button>
       </div>
 
       <div id="map-container" ref="mapContainer"></div>
@@ -284,6 +286,17 @@ const drawWeatherStationMarkers = () => {
           </ul>
         </div>
       </div>
+      <!-- <div v-if="mapView === 'temperature'" class="weather-controls">
+        <div class="rainfall-legend">
+          <h6>อุณหภูมิ</h6>
+          <ul>
+            <li v-for="level in damWaterLevels" :key="level.label">
+              <span class="legend-color" :style="{ backgroundColor: level.color }"></span>
+              {{ level.label }}
+            </li>
+          </ul>
+        </div>
+      </div> -->
     </div>
   </div>
 </template>
@@ -302,7 +315,7 @@ const drawWeatherStationMarkers = () => {
 
 .weather-controls {
   position: absolute;
-  top: 10px;
+  top: 50px;
   right: 10px;
   z-index: 1000;
   display: flex;

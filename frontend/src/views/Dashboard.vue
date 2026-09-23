@@ -11,8 +11,7 @@ import RiskMapCard from '@/components/RiskMapCard.vue'
 import DisasterGauges from '@/components/DisasterGauges.vue'
 import TrendLineChart from '@/components/TrendLineChart.vue'
 import DisasterPieChart from '@/components/DisasterPieChart.vue'
-import TopProvincesBarChart from '@/components/TopProvincesBarChart.vue'
-import InfoPanel from '@/components/InfoPanel.vue'
+import DisasterTypeCard from '@/components/DisasterTypeCard.vue'
 import PartnerLogos from '@/components/PartnerLogos.vue'
 
 const store = useDashboardStore()
@@ -35,39 +34,6 @@ const {
 } = storeToRefs(store)
 
 onMounted(() => store.fetchAll())
-
-const earlyWarningItems = [
-  { icon: '🗺', label: 'Risk Map Dashboard' },
-  { icon: '📈', label: 'คาดการณ์ล่วงหน้า 15 วัน' },
-  { icon: '💧', label: 'Water Balance' },
-  { icon: '🛰', label: 'ข้อมูลดาวเทียม/เรดาร์' },
-  { icon: '☀', label: 'Drought Risk Index (DRI)' },
-  { icon: '📓', label: 'สมุดน้ำรายตำบล' },
-]
-const monitoringItems = [
-  { icon: '📊', label: 'ติดตามการช่วยเหลือ' },
-  { icon: '📈', label: 'ความคืบหน้าการช่วยเหลือ' },
-  { icon: '📋', label: 'ทะเบียนเกษตรกร (ทบก.)' },
-  { icon: '🧑\u200d🌾', label: 'ข้อมูลเกษตรกรและขึ้นทะเบียน' },
-  { icon: '📝', label: 'รายงานเหตุเบื้องต้น' },
-  { icon: '🚑', label: 'การลงพื้นที่และช่วยเหลือฉุกเฉิน' },
-]
-const knowledgeItems = [
-  { icon: '📰', label: 'คลังสื่อประชาสัมพันธ์' },
-  { icon: '🎞', label: 'Infographic / VDO / สื่อความรู้' },
-  { icon: '🌱', label: 'พืชทางเลือก' },
-  { icon: '💧', label: 'ทางเลือกการปลูกพืชใช้น้ำน้อย' },
-  { icon: '📖', label: 'คำแนะนำวิชาการ' },
-  { icon: '📕', label: 'คู่มือบริหารจัดการน้ำและพืช' },
-]
-const supportItems = [
-  { icon: '🧰', label: 'จัดการปัจจัยสำรอง' },
-  { icon: '🚚', label: 'สต็อกเมล็ดพันธุ์ ปัจจัยสำรอง' },
-  { icon: '🚚', label: 'สต็อกชีวภัณฑ์' },
-  { icon: '🚚', label: 'สต็อกเมล็ดพันธุ์ ปัจจัยสำรอง' },
-  // { icon: '📱', label: 'Mobile Report' },
-  // { icon: '📶', label: 'รายงานผ่านมือถือแบบเรียลไทม์' },
-]
 </script>
 
 <template>
@@ -92,32 +58,22 @@ const supportItems = [
       </aside>
 
       <section class="col-map">
-        <RiskMapCard :provinces="provinces" :selected-province="selectedProvince" :weather-data="weatherData"
-          :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
-          :dam-water-data="damWaterData" @select-province="store.selectProvince($event)"
-          @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
-        <div class="charts-row">
-          <TrendLineChart :trend="trend" />
-          <DisasterPieChart :breakdown="breakdown" />
-          <TopProvincesBarChart :provinces="topDamaged" />
+        <div class="map-layout">
+          <div class="map-area">
+            <RiskMapCard :provinces="provinces" :selected-province="selectedProvince" :weather-data="weatherData"
+              :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
+              :dam-water-data="damWaterData" @select-province="store.selectProvince($event)"
+              @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
+          </div>
+          <div class="side-charts">
+            <TrendLineChart :trend="trend" />
+            <DisasterPieChart :breakdown="breakdown" />
+          </div>
+        </div>
+        <div class="bottom-chart">
+          <DisasterTypeCard :provinces="topDamaged" />
         </div>
       </section>
-
-      <section class="col-status">
-        <!-- <DisasterGauges :gauges="gauges" /> -->
-        <aside class="col-panels">
-          <InfoPanel title="ระบบแจ้งเตือนภัยและชี้เป้าหมาย (Early Warning & Risk Maps)" header-icon="🔔"
-            color="var(--pdm-blue)" :items="earlyWarningItems" />
-          <InfoPanel title="แดชบอร์ดติดตามสถานการณ์และการช่วยเหลือ (Monitoring & Assistance)" header-icon="📊"
-            color="var(--pdm-green)" :items="monitoringItems" />
-          <InfoPanel title="คลังสื่อความรู้และทางเลือกการเกษตร (Knowledge & Media)" header-icon="📚"
-            color="var(--pdm-orange)" :items="knowledgeItems" />
-          <InfoPanel title="ระบบสนับสนุนเจ้าหน้าที่ (Operation Support)" header-icon="🧑" color="var(--pdm-purple)"
-            :items="supportItems" />
-        </aside>
-      </section>
-
-
     </div>
 
     <PartnerLogos />
@@ -162,15 +118,14 @@ const supportItems = [
 
 .main-grid {
   display: grid;
-  grid-template-columns: minmax(180px, 200px) minmax(0, 2fr) minmax(260px, 1fr);
+  grid-template-columns: minmax(180px, 200px) minmax(0, 1fr);
   grid-template-rows: auto auto;
   gap: 16px;
   padding: 16px 22px;
 }
 
 .main-grid>*,
-.col-map,
-.col-status {
+.col-map {
   min-width: 0;
 }
 
@@ -186,35 +141,40 @@ const supportItems = [
   gap: 16px;
 }
 
-.col-status {
-  grid-column: 3;
-  grid-row: 1 / 3;
-}
-
-/* col-panels is a PLAIN child of .col-status (not a grid child of .main-grid);
-   it fills col-status width and arranges the 4 InfoPanels responsively. */
-.col-panels {
+.map-layout {
   display: grid;
-  /* 1-up in the narrow desktop sidebar column, auto-reflows 2-up where there is
-     room (tablet). 340px min keeps it at most 2 columns -> big enough for the
-     long Thai labels. */
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+  grid-template-columns: 3fr 2fr; /* RiskMap 60% / side-charts 40% */
   gap: 12px;
-  align-content: start;
+  align-items: stretch;
 }
 
-.col-panels>* {
+.map-area {
+  display: flex;
   min-width: 0;
 }
 
-.charts-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 12px;
+.map-area>* {
+  flex: 1;
+  width: 100%;
 }
 
-.charts-row>* {
+.side-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-width: 0;
+}
+
+.side-charts>* {
+  min-width: 0;
+  width: 100%;
+}
+
+.bottom-chart {
+  min-width: 0;
+}
+
+.bottom-chart>* {
   width: 100%;
 }
 
@@ -231,12 +191,6 @@ const supportItems = [
     grid-column: 2;
     grid-row: 1;
   }
-
-  /* place the status panels below the map so they no longer overlap it */
-  .col-status {
-    grid-column: 2;
-    grid-row: 2;
-  }
 }
 
 @media (max-width: 900px) {
@@ -247,19 +201,19 @@ const supportItems = [
   }
 
   .col-nav,
-  .col-map,
-  .col-status {
+  .col-map {
     grid-column: 1;
     grid-row: auto;
   }
 
-  /* stack the 4 panels into a single column for readability on small screens */
-  .col-panels {
+  /* Stack map full-width, side charts beside each other below the map */
+  .map-layout {
     grid-template-columns: 1fr;
   }
 
-  .charts-row {
-    grid-template-columns: 1fr;
+  .side-charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
   }
 
   .error-banner,
@@ -288,6 +242,12 @@ const supportItems = [
 @media (max-width: 640px) {
   .main-grid {
     padding: 10px;
+  }
+
+  /* On small screens, stack the side charts into a single column */
+  .side-charts {
+    display: flex;
+    flex-direction: column;
   }
 
   .error-banner,

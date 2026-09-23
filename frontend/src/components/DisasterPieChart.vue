@@ -35,9 +35,9 @@ const options = {
 
 <template>
   <div class="card chart-card">
-    <div class="chart-title">สัดส่วนประเภทภัยพิบัติ (ปี 2568)</div>
+    <div class="chart-title">ข้อความแจ้งเตือนจากแหล่งอ้างอิงได้ (พี่อุ้ม)</div>
     <div class="chart-wrap">
-      <Doughnut :data="chartData" :options="options" />
+      <!-- <Doughnut :data="chartData" :options="options" /> -->
     </div>
   </div>
 </template>
