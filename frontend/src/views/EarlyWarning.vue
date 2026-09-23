@@ -71,10 +71,10 @@ const villageBooks = [
             <p>{{ theme.subtitle }}</p>
           </div>
         </section>
-
-        <section class="card block">
-          <div class="card-title" :style="{ color: theme.color }">🗺 โซนเสี่ยงภัยรายจังหวัด (Risk Map)</div>
-          <table class="mock-table">
+        <div class="grid-2">
+          <section class="card block">
+            <div class="card-title" :style="{ color: theme.color }">🗺 โซนเสี่ยงภัยรายจังหวัด (Risk Map)</div>
+            <!-- <table class="mock-table">
             <thead>
               <tr><th>จังหวัด</th><th>อำเภอ</th><th>ระดับความเสี่ยง</th><th>ปริมาณฝน</th><th>พื้นที่กระทบ</th><th>หมายเหตุ</th></tr>
             </thead>
@@ -88,12 +88,13 @@ const villageBooks = [
                 <td>{{ r.note }}</td>
               </tr>
             </tbody>
-          </table>
-        </section>
+          </table> -->
+          </section>
 
-        <section class="card block">
-          <div class="card-title" :style="{ color: theme.color }">📈 คาดการณ์ล่วงหน้า 15 วัน</div>
-          <table class="mock-table">
+          <section class="card block">
+            <div class="card-title" :style="{ color: theme.color }">📈 คาดการณ์พื้นที่เสี่ยงอุทกภัยเดือนมกราคม 2570 จาก
+              สสน.</div>
+            <!-- <table class="mock-table">
             <thead><tr><th>ช่วงเวลา</th><th>วันที่</th><th>โอกาสฝนตก</th><th>อุณหภูมิ</th><th>ระดับความเสี่ยง</th></tr></thead>
             <tbody>
               <tr v-for="f in forecasts" :key="f.day">
@@ -104,41 +105,55 @@ const villageBooks = [
                 <td><span class="tag" :class="'bg-risk-' + f.risk">{{ f.riskLabel }}</span></td>
               </tr>
             </tbody>
-          </table>
-        </section>
-
+          </table> -->
+          </section>
+        </div>
         <div class="grid-2">
           <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">💧 Water Balance รายลุ่มน้ำ</div>
-            <table class="mock-table">
-              <thead><tr><th>ลุ่มน้ำ</th><th>น้ำเข้า</th><th>ความจุ</th><th>สถานะ</th></tr></thead>
+            <div class="card-title" :style="{ color: theme.color }">💧 ทุ่งรับน้ำ 13 ทุ่ง</div>
+            <!-- <table class="mock-table">
+              <thead>
+                <tr>
+                  <th>ลุ่มน้ำ</th>
+                  <th>น้ำเข้า</th>
+                  <th>ความจุ</th>
+                  <th>สถานะ</th>
+                </tr>
+              </thead>
               <tbody>
                 <tr v-for="w in waterBalance" :key="w.basin">
                   <td>{{ w.basin }}</td>
                   <td>{{ w.inflow }}</td>
                   <td>{{ w.storage }}</td>
-                  <td><span class="tag" :class="w.statusClass === 'ok' ? 'bg-risk-normal' : 'bg-risk-watch'">{{ w.status }}</span></td>
+                  <td><span class="tag" :class="w.statusClass === 'ok' ? 'bg-risk-normal' : 'bg-risk-watch'">{{ w.status
+                  }}</span></td>
                 </tr>
               </tbody>
-            </table>
+            </table> -->
           </section>
 
           <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">🛰 ข้อมูลดาวเทียม / เรดาร์</div>
-            <ul class="plain-list">
+            <div class="card-title" :style="{ color: theme.color }">🛰 พื้นที่น้ำท่วมซ้ำซาก จากกรมพัฒนาที่ดิน</div>
+            <!-- <ul class="plain-list">
               <li v-for="s in satelliteSources" :key="s.src">
                 <span class="list-name">{{ s.src }} <em>{{ s.freq }}</em></span>
                 <span class="list-desc">{{ s.usage }}</span>
               </li>
-            </ul>
+            </ul> -->
           </section>
         </div>
 
         <div class="grid-2">
           <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">☀ Drought Risk Index (DRI)</div>
-            <table class="mock-table">
-              <thead><tr><th>จังหวัด</th><th>ดัชนี</th><th>ระดับ</th></tr></thead>
+            <div class="card-title" :style="{ color: theme.color }">☀ จุดความร้อน hotspot</div>
+            <!-- <table class="mock-table">
+              <thead>
+                <tr>
+                  <th>จังหวัด</th>
+                  <th>ดัชนี</th>
+                  <th>ระดับ</th>
+                </tr>
+              </thead>
               <tbody>
                 <tr v-for="d in dri" :key="d.province">
                   <td>{{ d.province }}</td>
@@ -146,13 +161,20 @@ const villageBooks = [
                   <td><span class="tag" :class="'bg-risk-' + d.levelClass">{{ d.level }}</span></td>
                 </tr>
               </tbody>
-            </table>
+            </table> -->
           </section>
 
           <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">📓 สมุดน้ำรายตำบล</div>
-            <table class="mock-table">
-              <thead><tr><th>ตำบล</th><th>ครัวเรือน</th><th>วันน้ำเพียงพอ</th><th>หมายเหตุ</th></tr></thead>
+            <div class="card-title" :style="{ color: theme.color }">📓 พื้นที่แล้งซ้ำซาก LDD</div>
+            <!-- <table class="mock-table">
+              <thead>
+                <tr>
+                  <th>ตำบล</th>
+                  <th>ครัวเรือน</th>
+                  <th>วันน้ำเพียงพอ</th>
+                  <th>หมายเหตุ</th>
+                </tr>
+              </thead>
               <tbody>
                 <tr v-for="v in villageBooks" :key="v.village">
                   <td>{{ v.village }}</td>
@@ -161,7 +183,7 @@ const villageBooks = [
                   <td>{{ v.note }}</td>
                 </tr>
               </tbody>
-            </table>
+            </table> -->
           </section>
         </div>
       </main>
@@ -170,7 +192,11 @@ const villageBooks = [
 </template>
 
 <style scoped>
-.page { min-height: 100%; padding-bottom: 20px; }
+.page {
+  min-height: 100%;
+  padding-bottom: 20px;
+}
+
 .page-body {
   display: grid;
   grid-template-columns: minmax(180px, 200px) minmax(0, 1fr);
@@ -178,8 +204,18 @@ const villageBooks = [
   padding: 16px 22px;
   align-items: start;
 }
-.col-nav { position: sticky; top: 16px; }
-.col-content { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+.col-nav {
+  position: sticky;
+  top: 16px;
+}
+
+.col-content {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
 
 .hero {
   display: flex;
@@ -190,41 +226,120 @@ const villageBooks = [
   padding: 18px 20px;
   box-shadow: var(--shadow-card);
 }
-.hero-icon { font-size: 30px; }
-.hero h2 { font-size: 20px; }
-.hero p { margin: 2px 0 0; opacity: 0.85; font-size: 13px; }
 
-.block { padding-bottom: 6px; }
-.card-title { font-weight: 700; font-size: 14px; padding: 14px 16px 8px; }
+.hero-icon {
+  font-size: 30px;
+}
 
-.mock-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.mock-table th, .mock-table td {
+.hero h2 {
+  font-size: 20px;
+}
+
+.hero p {
+  margin: 2px 0 0;
+  opacity: 0.85;
+  font-size: 13px;
+}
+
+.block {
+  padding-bottom: 6px;
+}
+
+.card-title {
+  font-weight: 700;
+  font-size: 14px;
+  padding: 14px 16px 8px;
+}
+
+.mock-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.mock-table th,
+.mock-table td {
   text-align: left;
   padding: 9px 12px;
   border-bottom: 1px solid var(--border-soft);
   vertical-align: top;
 }
+
 .mock-table th {
   background: #f6f8f7;
   font-weight: 600;
   font-size: 12px;
   color: var(--text-muted);
 }
-.mock-table tr:hover td { background: #fafcfb; }
 
-.tag { color: #fff; border-radius: 999px; padding: 2px 10px; font-size: 11.5px; white-space: nowrap; }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.mock-table tr:hover td {
+  background: #fafcfb;
+}
 
-.plain-list { list-style: none; margin: 0; padding: 4px 16px 14px; display: grid; gap: 10px; }
-.plain-list li { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
-.list-name { font-weight: 600; }
-.list-name em { font-style: normal; color: var(--text-muted); font-weight: 400; }
-.list-desc { color: var(--text-muted); font-size: 12px; }
+.tag {
+  color: #fff;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
 
-@media (max-width: 1280px) { .grid-2 { grid-template-columns: 1fr; } }
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px 16px 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.plain-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 13px;
+}
+
+.list-name {
+  font-weight: 600;
+}
+
+.list-name em {
+  font-style: normal;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.list-desc {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+@media (max-width: 1280px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 900px) {
-  .page-body { grid-template-columns: 1fr; padding: 12px 14px; gap: 12px; }
-  .col-nav { position: static; }
-  .mock-table { display: block; overflow-x: auto; }
+  .page-body {
+    grid-template-columns: 1fr;
+    padding: 12px 14px;
+    gap: 12px;
+  }
+
+  .col-nav {
+    position: static;
+  }
+
+  .mock-table {
+    display: block;
+    overflow-x: auto;
+  }
 }
 </style>
