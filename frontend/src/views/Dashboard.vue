@@ -63,8 +63,10 @@ const knowledgeItems = [
 const supportItems = [
   { icon: '🧰', label: 'จัดการปัจจัยสำรอง' },
   { icon: '🚚', label: 'สต็อกเมล็ดพันธุ์ ปัจจัยสำรอง' },
-  { icon: '📱', label: 'Mobile Report' },
-  { icon: '📶', label: 'รายงานผ่านมือถือแบบเรียลไทม์' },
+  { icon: '🚚', label: 'สต็อกชีวภัณฑ์' },
+  { icon: '🚚', label: 'สต็อกเมล็ดพันธุ์ ปัจจัยสำรอง' },
+  // { icon: '📱', label: 'Mobile Report' },
+  // { icon: '📶', label: 'รายงานผ่านมือถือแบบเรียลไทม์' },
 ]
 </script>
 
@@ -186,15 +188,23 @@ const supportItems = [
 
 .col-status {
   grid-column: 3;
-  grid-row: 1;
+  grid-row: 1 / 3;
 }
 
+/* col-panels is a PLAIN child of .col-status (not a grid child of .main-grid);
+   it fills col-status width and arranges the 4 InfoPanels responsively. */
 .col-panels {
-  grid-column: 3;
-  grid-row: 2;
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  /* 1-up in the narrow desktop sidebar column, auto-reflows 2-up where there is
+     room (tablet). 340px min keeps it at most 2 columns -> big enough for the
+     long Thai labels. */
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
   gap: 12px;
+  align-content: start;
+}
+
+.col-panels>* {
+  min-width: 0;
 }
 
 .charts-row {
@@ -217,16 +227,14 @@ const supportItems = [
     grid-row: 1 / 3;
   }
 
-  .col-map,
-  .col-panels {
-    grid-column: 2;
-  }
-
   .col-map {
+    grid-column: 2;
     grid-row: 1;
   }
 
-  .col-panels {
+  /* place the status panels below the map so they no longer overlap it */
+  .col-status {
+    grid-column: 2;
     grid-row: 2;
   }
 }
@@ -240,10 +248,14 @@ const supportItems = [
 
   .col-nav,
   .col-map,
-  .col-status,
-  .col-panels {
+  .col-status {
     grid-column: 1;
     grid-row: auto;
+  }
+
+  /* stack the 4 panels into a single column for readability on small screens */
+  .col-panels {
+    grid-template-columns: 1fr;
   }
 
   .charts-row {

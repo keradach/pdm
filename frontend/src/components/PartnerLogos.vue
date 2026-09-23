@@ -26,8 +26,10 @@ const features = [
 
     <div class="card contact">
       <div class="section-title light">DOAE Contact Center</div>
-      <div class="contact-row">📞 0 2579 3926</div>
-      <div class="contact-row">✉ disaster_pdm@doae.go.th</div>
+      <div class="contact-list">
+        <div class="contact-row">📞 0 2579 3926</div>
+        <div class="contact-row">✉ pdmrc@doae.go.th</div>
+      </div>
     </div>
   </div>
 </template>
@@ -39,14 +41,88 @@ const features = [
   gap: 12px;
   padding: 0 22px 22px;
 }
-.partners, .contact { padding: 14px 18px; }
-.section-title { font-size: 13px; font-weight: 700; color: var(--pdm-green-deep); margin-bottom: 8px; }
-.section-title.light { color: #fff; }
-.partner-list { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12px; color: var(--text-muted); margin-bottom: 10px; }
-.feature-list { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 12px; }
+
+.footer-row>* {
+  min-width: 0;
+}
+
+.partners,
+.contact {
+  padding: 14px 18px;
+}
+
+.section-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--pdm-green-deep);
+  margin-bottom: 8px;
+}
+
+.section-title.light {
+  color: #fff;
+}
+
+.partner-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.feature-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  font-size: 12px;
+}
+
 .contact {
   background: linear-gradient(135deg, var(--pdm-green-deep), var(--pdm-green));
   color: #fff;
 }
-.contact-row { font-size: 13px; margin-top: 6px; }
+
+.contact-row {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.contact-list {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin-top: 2px;
+  min-width: 0;
+}
+
+.contact-list .contact-row {
+  display: inline-flex;
+  align-items: center;
+  font-size: 13px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 900px) {
+  .footer-row {
+    grid-template-columns: 1fr;
+    padding: 0 14px 14px;
+  }
+
+  .contact-list .contact-row {
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 640px) {
+  .footer-row {
+    padding: 0 10px 12px;
+  }
+
+  .contact-list .contact-row {
+    font-size: 12.5px;
+  }
+}
 </style>
