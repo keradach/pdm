@@ -167,11 +167,6 @@ const drawProvinceRiskMarkers = () => {
 };
 
 const drawWeatherStationMarkers = () => {
-  // console.log('Drawing weather:', props.rainfallData?.data);
-  // return; // --- IGNORE ---
-  // const dataSet = props.rainfallPeriod == 'today' ? props.rainfallData?.today.data : props.rainfallData?.data;
-  // if (!dataSet) return;
-
   var dataSet = [];
   switch (props.rainfallPeriod) {
     case 'today':
@@ -188,11 +183,7 @@ const drawWeatherStationMarkers = () => {
       break;
   }
 
-  console.log('data:', dataSet);
-
-
   dataSet.forEach(value => {
-
     const lat = value.station.tele_station_lat;
     const lon = value.station.tele_station_long;
     const station = value.station.tele_station_name.th;
@@ -329,7 +320,7 @@ const drawWeatherStationMarkers = () => {
 #map-container {
   width: 100%;
   height: 100%;
-  min-height: clamp(360px, 55vw, 600px);
+  min-height: clamp(360px, 55vw, 500px);
 }
 
 .map-card {
