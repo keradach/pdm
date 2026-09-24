@@ -13,10 +13,9 @@ export const useDashboardStore = defineStore("dashboard", {
     breakdown: [],
     alerts: [],
     selectedProvince: null,
-    weatherData: null,
     rainfallData: null,
     damWaterData: [],
-    mapView: "weather", // 'risk' or 'weather or 'dam'
+    mapView: "rain", // 'risk' or 'rain' or 'dam'
     rainfallPeriod: "today", // 'today', 'yesterday', 'last_3_days', 'last_7_days'
   }),
 
@@ -33,8 +32,10 @@ export const useDashboardStore = defineStore("dashboard", {
           trend,
           breakdown,
           alerts,
-          weatherData,
-          rainfallData,
+          rainToday,
+          rainYesterday,
+          rain3d,
+          rain7d,
           damWaterData,
         ] = await Promise.all([
           api.getSummary(),
@@ -44,8 +45,10 @@ export const useDashboardStore = defineStore("dashboard", {
           api.getTrend(),
           api.getBreakdown(),
           api.getAlerts(),
-          api.getAwsNow(),
-          api.getAwsRainfall(),
+          api.getRainToday(),
+          api.getRainYesterday(),
+          api.getRain3d(),
+          api.getRain7d(),
           api.getDamWater(),
         ]);
         this.summary = summary;
@@ -55,8 +58,14 @@ export const useDashboardStore = defineStore("dashboard", {
         this.trend = trend;
         this.breakdown = breakdown;
         this.alerts = alerts;
-        this.weatherData = weatherData;
-        this.rainfallData = rainfallData;
+        this.rainfallData = {
+          data: {
+            today: rainToday.data,
+            yesterday: rainYesterday.data,
+            "3d": rain3d.data,
+            "7d": rain7d.data,
+          },
+        };
         this.damWaterData = damWaterData;
         this.selectedProvince =
           provinces.find((p) => p.risk_level === "critical") ||

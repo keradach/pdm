@@ -44,6 +44,29 @@ export default {
     tmdApi.get("https://wxmap.tmd.go.th/api/awsnow").then((r) => r.data),
   getAwsRainfall: () =>
     tmdApi.get("https://wxmap.tmd.go.th/api/awsrainfall").then((r) => r.data),
+  // ---- Thai Water API ----
+  getRain24h: () =>
+    tmdApi
+      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_24h")
+      .then((r) => r.data),
+  getRainToday: () =>
+    tmdApi
+      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_today")
+      .then((r) => r.data),
+  getRainYesterday: () =>
+    tmdApi
+      .get(
+        "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_yesterday",
+      )
+      .then((r) => r.data),
+  getRain3d: () =>
+    tmdApi
+      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/provinces/rain3d")
+      .then((r) => r.data),
+  getRain7d: () =>
+    tmdApi
+      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/provinces/rain7d")
+      .then((r) => r.data),
   getDamWater: () =>
     thaiWaterApi
       .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam")

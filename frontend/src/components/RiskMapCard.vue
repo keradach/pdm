@@ -7,7 +7,6 @@ import L from 'leaflet';
 const props = defineProps({
   provinces: Array,
   selectedProvince: Object,
-  weatherData: Object,
   rainfallData: Object,
   damWaterData: Array,
   mapView: String, // 'risk', 'weather', or 'dam'
@@ -29,13 +28,13 @@ const riskLevelColors = {
 };
 
 const rainfallLevels = [
-  { min: 250, label: 'ฝนตกหนักมาก (> 250)', color: '#800080' }, // Purple
-  { min: 125, label: 'ฝนตกหนัก (125-250)', color: '#dc3545' }, // Red
-  { min: 65, label: 'ฝนตกค่อนข้างหนัก (65-125)', color: '#fd7e14' }, // Orange
-  { min: 35, label: 'ฝนตกปานกลาง (35-65)', color: '#ffc107' }, // Yellow
-  { min: 10, label: 'ฝนตกเล็กน้อย (10-35)', color: '#0dcaf0' }, // Cyan
-  { min: 0.1, label: 'ฝนโปรยปราย (0.1-10)', color: '#198754' }, // Green
-  { min: 0, label: 'ไม่มีฝน', color: '#6c757d' }, // Grey
+  { min: 90, label: 'ฝนตกหนักมาก (> 90)', color: '#dc3545' }, // red
+  { min: 70, label: 'ฝนตกหนัก (70-90)', color: '#CD7F32' }, // brown
+  { min: 50, label: 'ฝนตกหนัก (50-70)', color: '#ffc107' }, // orange
+  { min: 35, label: 'ฝนตกหนัก (35-50)', color: '#fd7e14' }, // yellow
+  { min: 20, label: 'ฝนตกปานกลาง (20-35)', color: '#198754' }, // green
+  { min: 10, label: 'ฝนตกปานกลาง (10-20)', color: '#90EE90' }, // green-light
+  { min: 0, label: 'ฝนตกเล็กน้อย (0-10)', color: '#0dcaf0' }, // Blue
 ];
 
 const rainfallPeriods = [
@@ -91,7 +90,7 @@ onBeforeUnmount(() => {
   }
 });
 
-watch(() => [props.mapView, props.provinces, props.weatherData, props.rainfallData, props.damWaterData, props.rainfallPeriod], () => {
+watch(() => [props.mapView, props.provinces, props.rainfallData, props.damWaterData, props.rainfallPeriod], () => {
   updateMap();
 }, { deep: true });
 
@@ -105,7 +104,7 @@ const updateMap = () => {
 
   if (props.mapView === 'temperature') {
     drawProvinceRiskMarkers();
-  } else if (props.mapView === 'weather') {
+  } else if (props.mapView === 'rain') {
     drawWeatherStationMarkers();
   } else if (props.mapView === 'dam') {
     drawDamWaterMarkers();
@@ -168,67 +167,92 @@ const drawProvinceRiskMarkers = () => {
 };
 
 const drawWeatherStationMarkers = () => {
-  const dataSet = props.rainfallPeriod == 'today' ? props.weatherData?.data : props.rainfallData?.data;
-  if (!dataSet) return;
+  // console.log('Drawing weather:', props.rainfallData?.data);
+  // return; // --- IGNORE ---
+  // const dataSet = props.rainfallPeriod == 'today' ? props.rainfallData?.today.data : props.rainfallData?.data;
+  // if (!dataSet) return;
 
-  dataSet.forEach(station => {
-    const lat = station.station_lat;
-    const lon = station.station_lon;
+  var dataSet = [];
+  switch (props.rainfallPeriod) {
+    case 'today':
+      dataSet = props.rainfallData?.data.today || [];
+      break;
+    case 'yesterday':
+      dataSet = props.rainfallData?.data.yesterday || [];
+      break;
+    case 'last_3_days':
+      dataSet = props.rainfallData?.data['3d'] || [];
+      break;
+    case 'last_7_days':
+      dataSet = props.rainfallData?.data['7d'] || [];
+      break;
+  }
+
+  console.log('data:', dataSet);
+
+
+  dataSet.forEach(value => {
+
+    const lat = value.station.tele_station_lat;
+    const lon = value.station.tele_station_long;
+    const station = value.station.tele_station_name.th;
     if (lat == null || lon == null) return;
 
     let rainfallValue = null;
     let periodLabel = '';
     var popupContent = '';
+    var province_name = '';
+    var displayDate = '';
     const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' };
-
-
+    const tempDate = new Date(value.rainfall_datetime);
     switch (props.rainfallPeriod) {
       case 'today':
-        rainfallValue = station.precip_today;
-        periodLabel = 'วันนี้';
-        break;
       case 'yesterday':
+        rainfallValue = value.rainfall_value;
+        displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleString('th-TH', options)} น.` : '';
+        province_name = value.geocode.province_name.th;
+        break;
       case 'last_3_days':
+        rainfallValue = value.rain_3d;
+        displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}` : '';
+        province_name = value.geocode.province_name.th;
+        break;
       case 'last_7_days':
-        const history = props.rainfallData?.data.find(s => s.station_id === station.station_id);
-        if (history) {
-          const periodKeyMap = { yesterday: 'precip_yesterday', last_3_days: 'precip_3days', last_7_days: 'precip_7days' };
-          const key = periodKeyMap[props.rainfallPeriod];
-          rainfallValue = history[key];
-        }
-        periodLabel = rainfallPeriods.find(p => p.key === props.rainfallPeriod)?.label || '';
+        displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}` : '';
+        rainfallValue = value.rain_7d;
+        province_name = value.geocode.province_name.th;
         break;
     }
+    periodLabel = rainfallPeriods.find(p => p.key === props.rainfallPeriod)?.label || '';
 
     const color = getRainfallColor(rainfallValue);
     const marker = L.circleMarker([lat, lon], {
-      radius: 6,
+      radius: 3,
       fillColor: color,
-      color: '#000',
-      weight: 1,
+      weight: 0.6,
       opacity: 1,
-      fillOpacity: 0.9
+      fillOpacity: 1
     }).addTo(markersLayer);
 
-    if (props.rainfallPeriod === 'today') {
-      const tempDate = new Date(station.datetime_utc7);
-      const displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleString('th-TH', options)} น.` : ''
-      const temp = station.temperature;
-      popupContent = `${displayDate}<br>
-      <b>สถานี: ${station.station_name_th}</b><br>
-      จังหวัด: ${station.province_name_th}<br>
+    popupContent = `${displayDate}<br>
+      <b>สถานี: ${station}</b><br>
+      จังหวัด: ${province_name}<br>
       <hr class="my-1">
-      <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>
-     อุณหภูมิวันนี้: ${temp ?? 'N/A'} °C`;
+      <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>`;
+
+    if (props.rainfallPeriod === 'today' || props.rainfallPeriod === 'yesterday') {
+      // const tempDate = new Date(value.rainfall_datetime);
+      // const displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleString('th-TH', options)} น.` : ''
+      // const temp = station.temperature;
+
     } else {
-      const tempDate = new Date(station.date);
-      const displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}` : ''
-      popupContent = `${displayDate}<br>
-      <b>สถานี: ${station.station_name_th}</b><br>
-      จังหวัด: ${station.province_name_th}<br>
-      <hr class="my-1">
-      <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>
-      `;
+
+      // popupContent = `${displayDate}<br>
+      // <b>สถานี: ${station}</b><br>
+      // จังหวัด: ${value.geocode.province_name.th}<br>
+      // <hr class="my-1">
+      // <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>
+      // `;
     }
 
     marker.bindPopup(popupContent);
@@ -246,8 +270,8 @@ const drawWeatherStationMarkers = () => {
       <div class="view-switcher">
         <!-- <button :class="{ active: mapView === 'risk' }"
           @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button> -->
-        <button :class="{ active: mapView === 'weather' }"
-          @click="$emit('setMapView', 'weather')">ปริมาณน้ำฝนจากกรมอุตุนิยมวิทยา</button>
+        <button :class="{ active: mapView === 'rain' }"
+          @click="$emit('setMapView', 'rain')">ปริมาณน้ำฝนจากthaiwater</button>
         <button :class="{ active: mapView === 'dam' }" @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
         <button :class="{ active: mapView === 'temperature' }"
           @click="$emit('setMapView', 'temperature')">อุณหภูมิ</button>
@@ -255,7 +279,7 @@ const drawWeatherStationMarkers = () => {
 
       <div id="map-container" ref="mapContainer"></div>
 
-      <div v-if="mapView === 'weather'" class="weather-controls">
+      <div v-if="mapView === 'rain'" class="weather-controls">
         <div class="rainfall-legend">
           <h6>ปริมาณน้ำฝน (มม.)</h6>
           <ul>

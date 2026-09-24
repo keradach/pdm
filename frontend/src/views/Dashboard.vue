@@ -26,7 +26,6 @@ const {
   selectedProvince,
   loading,
   error,
-  weatherData,
   rainfallData,
   damWaterData,
   mapView,
@@ -60,10 +59,10 @@ onMounted(() => store.fetchAll())
       <section class="col-map">
         <div class="map-layout">
           <div class="map-area">
-            <RiskMapCard :provinces="provinces" :selected-province="selectedProvince" :weather-data="weatherData"
-              :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
-              :dam-water-data="damWaterData" @select-province="store.selectProvince($event)"
-              @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
+            <RiskMapCard :provinces="provinces" :selected-province="selectedProvince" :rainfall-data="rainfallData"
+              :map-view="mapView" :rainfall-period="rainfallPeriod" :dam-water-data="damWaterData"
+              @select-province="store.selectProvince($event)" @set-map-view="store.setMapView($event)"
+              @set-rainfall-period="store.setRainfallPeriod($event)" />
           </div>
           <div class="side-charts">
             <TrendLineChart :trend="trend" />
@@ -143,7 +142,8 @@ onMounted(() => store.fetchAll())
 
 .map-layout {
   display: grid;
-  grid-template-columns: 3fr 2fr; /* RiskMap 60% / side-charts 40% */
+  grid-template-columns: 3fr 2fr;
+  /* RiskMap 60% / side-charts 40% */
   gap: 12px;
   align-items: stretch;
 }
