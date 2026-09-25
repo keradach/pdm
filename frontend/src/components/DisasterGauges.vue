@@ -8,10 +8,10 @@ const props = defineProps({
 
 const ICONS = { drought: '☀', flood: '🌊', pest: '🐛', cold: '❄' }
 const COLORS = {
-  normal: 'var(--pdm-green-bright)',
-  watch: 'var(--pdm-yellow)',
-  high: 'var(--pdm-orange)',
-  critical: 'var(--pdm-red)',
+  normal: '#3fa66a',
+  watch: '#f0b429',
+  high: '#e8770f',
+  critical: '#d1352b',
 }
 const LABELS = { normal: 'ปกติ', watch: 'เฝ้าระวัง', high: 'เสี่ยงสูง', critical: 'วิกฤต' }
 
@@ -19,36 +19,23 @@ const items = computed(() =>
   props.gauges.map((g) => ({
     ...g,
     icon: ICONS[g.code] || '⚠',
-    color: COLORS[g.severity_label] || 'var(--pdm-green)',
+    color: COLORS[g.severity_label] || '#2e7d4f',
     statusLabel: LABELS[g.severity_label] || '',
   }))
 )
 </script>
 
 <template>
-  <div class="card gauges-card">
-    <div class="card-header" style="background: var(--pdm-green-deep)">
+  <div class="card overflow-hidden">
+    <div class="card-header bg-pdm-green-deep">
       สถานการณ์ภัยพิบัติด้านพืช
     </div>
-    <div class="gauges-grid">
-      <div v-for="g in items" :key="g.code" class="gauge-cell">
-        <div class="icon">{{ g.icon }}</div>
+    <div class="grid grid-cols-2 gap-[10px] p-4">
+      <div v-for="g in items" :key="g.code" class="text-center p-[10px] rounded-[10px] bg-[#fafcfa]">
+        <div class="text-xl mb-0.5">{{ g.icon }}</div>
         <GaugeChart :percent="g.severity_percent" :color="g.color" :label="g.statusLabel" />
-        <div class="name">{{ g.name_th }}</div>
+        <div class="text-xs text-muted mt-0.5">{{ g.name_th }}</div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.gauges-card { overflow: hidden; }
-.gauges-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  padding: 16px;
-}
-.gauge-cell { text-align: center; padding: 10px; border-radius: var(--radius-md); background: #fafcfa; }
-.icon { font-size: 20px; margin-bottom: 2px; }
-.name { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
-</style>

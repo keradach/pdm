@@ -1,12 +1,9 @@
 <script setup>
-import HeaderBar from '@/components/HeaderBar.vue'
-import SidebarNav from '@/components/SidebarNav.vue'
-
 const theme = {
   icon: '📊',
   title: 'แดชบอร์ดติดตามสถานการณ์และการช่วยเหลือ',
   subtitle: 'Monitoring & Assistance',
-  color: 'var(--pdm-green)',
+  color: '#2e7d4f',
 }
 
 // Mockup data (ตัวอย่างข้อมูลจำลอง)
@@ -34,161 +31,81 @@ const villageAssist = [
 ]
 </script>
 <template>
-  <div class="page">
-    <HeaderBar />
-
-    <div class="page-body">
-      <aside class="col-nav">
-        <SidebarNav />
-      </aside>
-
-      <main class="col-content">
-        <section class="hero" :style="{ background: theme.color }">
-          <span class="hero-icon">{{ theme.icon }}</span>
+  <section class="hero flex items-center gap-[14px] text-white rounded-[16px] p-[18px_20px] shadow-card" :style="{ background: theme.color }">
+          <span class="text-3xl">{{ theme.icon }}</span>
           <div>
-            <h2>{{ theme.title }}</h2>
-            <p>{{ theme.subtitle }}</p>
+            <h2 class="text-xl">{{ theme.title }}</h2>
+            <p class="mt-0.5 opacity-[0.85] text-[13px]">{{ theme.subtitle }}</p>
           </div>
         </section>
 
-        <div class="stat-row">
-          <div class="stat-card">
-            <span class="stat-num">{{ farmers.total.toLocaleString() }}</span>
-            <span class="stat-label">เกษตรกรทั้งหมด (ทะเบียน)</span>
+        <div class="grid grid-cols-4 gap-[14px] max-[900px]:grid-cols-2">
+          <div class="card p-4 flex flex-col gap-1">
+            <span class="font-display text-[26px] font-bold text-pdm-green">{{ farmers.total.toLocaleString() }}</span>
+            <span class="text-xs text-muted">เกษตรกรทั้งหมด (ทะเบียน)</span>
           </div>
-          <div class="stat-card">
-            <span class="stat-num">{{ farmers.registered.toLocaleString() }}</span>
-            <span class="stat-label">ขึ้นทะเบียนแล้ว</span>
+          <div class="card p-4 flex flex-col gap-1">
+            <span class="font-display text-[26px] font-bold text-pdm-green">{{ farmers.registered.toLocaleString() }}</span>
+            <span class="text-xs text-muted">ขึ้นทะเบียนแล้ว</span>
           </div>
-          <div class="stat-card">
-            <span class="stat-num">{{ farmers.pending.toLocaleString() }}</span>
-            <span class="stat-label">รอขึ้นทะเบียน</span>
+          <div class="card p-4 flex flex-col gap-1">
+            <span class="font-display text-[26px] font-bold text-pdm-green">{{ farmers.pending.toLocaleString() }}</span>
+            <span class="text-xs text-muted">รอขึ้นทะเบียน</span>
           </div>
-          <div class="stat-card">
-            <span class="stat-num">{{ farmers.areas }}</span>
-            <span class="stat-label">จังหวัดเป้าหมาย</span>
+          <div class="card p-4 flex flex-col gap-1">
+            <span class="font-display text-[26px] font-bold text-pdm-green">{{ farmers.areas }}</span>
+            <span class="text-xs text-muted">จังหวัดเป้าหมาย</span>
           </div>
         </div>
 
-        <section class="card block">
-          <div class="card-title" :style="{ color: theme.color }">ติดตามการช่วยเหลือรายจังหวัด</div>
-          <table class="mock-table">
-            <thead><tr><th>จังหวัด</th><th>คำขอ (ราย)</th><th>ช่วยเหลือแล้ว</th><th>ความคืบหน้า</th><th>สถานะ</th></tr></thead>
+        <section class="card pb-1.5">
+          <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">ติดตามการช่วยเหลือรายจังหวัด</div>
+          <table class="w-full border-collapse text-[13px]">
+            <thead><tr><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">จังหวัด</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">คำขอ (ราย)</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">ช่วยเหลือแล้ว</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">ความคืบหน้า</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">สถานะ</th></tr></thead>
             <tbody>
               <tr v-for="a in assistance" :key="a.province">
-                <td>{{ a.province }}</td>
-                <td>{{ a.requested.toLocaleString() }}</td>
-                <td>{{ a.serviced.toLocaleString() }}</td>
-                <td>
-                  <div class="progress"><span class="bar" :class="'bg-' + a.statusClass" :style="{ width: a.rate + '%' }"></span><em>{{ a.rate }}%</em></div>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ a.province }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ a.requested.toLocaleString() }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ a.serviced.toLocaleString() }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">
+                  <div class="progress flex items-center gap-2 min-w-[120px]"><span class="h-2 rounded-full" :class="'bg-' + a.statusClass" :style="{ width: a.rate + '%' }"></span><em class="font-normal text-[11.5px] text-muted">{{ a.rate }}%</em></div>
                 </td>
-                <td><span class="tag" :class="'bg-' + a.statusClass">{{ a.status }}</span></td>
+                <td class="text-left p-[9px_12px] border-b border-edge"><span class="text-white rounded-full px-[10px] py-0.5 text-[11.5px] whitespace-nowrap" :class="'bg-' + a.statusClass">{{ a.status }}</span></td>
               </tr>
             </tbody>
           </table>
         </section>
 
-        <section class="card block">
-          <div class="card-title" :style="{ color: theme.color }">ความคืบหน้าการช่วยเหลือ (รายกิจกรรม)</div>
-          <table class="mock-table">
-            <thead><tr><th>กิจกรรม</th><th>เป้าหมาย</th><th>ดำเนินการแล้ว</th><th>ความคืบหน้า</th></tr></thead>
+        <section class="card pb-1.5">
+          <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">ความคืบหน้าการช่วยเหลือ (รายกิจกรรม)</div>
+          <table class="w-full border-collapse text-[13px]">
+            <thead><tr><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">กิจกรรม</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">เป้าหมาย</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">ดำเนินการแล้ว</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">ความคืบหน้า</th></tr></thead>
             <tbody>
               <tr v-for="p in progress" :key="p.activity">
-                <td>{{ p.activity }}</td>
-                <td>{{ p.target.toLocaleString() }}</td>
-                <td>{{ p.done.toLocaleString() }}</td>
-                <td>
-                  <div class="progress"><span class="bar bg-ok" :style="{ width: p.rate + '%' }"></span><em>{{ p.rate }}%</em></div>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ p.activity }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ p.target.toLocaleString() }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ p.done.toLocaleString() }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">
+                  <div class="progress flex items-center gap-2 min-w-[120px]"><span class="h-2 rounded-full bg-ok" :style="{ width: p.rate + '%' }"></span><em class="font-normal text-[11.5px] text-muted">{{ p.rate }}%</em></div>
                 </td>
               </tr>
             </tbody>
           </table>
         </section>
 
-        <section class="card block">
-          <div class="card-title" :style="{ color: theme.color }">รายงานเหตุเบื้องต้นและการลงพื้นที่</div>
-          <table class="mock-table">
-            <thead><tr><th>ตำบล</th><th>อำเภอ</th><th>เหตุการณ์</th><th>ครัวเรือน</th><th>สถานะ</th></tr></thead>
+        <section class="card pb-1.5">
+          <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">รายงานเหตุเบื้องต้นและการลงพื้นที่</div>
+          <table class="w-full border-collapse text-[13px]">
+            <thead><tr><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">ตำบล</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">อำเภอ</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">เหตุการณ์</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">ครัวเรือน</th><th class="text-left p-[9px_12px] border-b border-edge bg-[#f6f8f7] text-xs font-semibold text-muted">สถานะ</th></tr></thead>
             <tbody>
               <tr v-for="v in villageAssist" :key="v.village">
-                <td>{{ v.village }}</td>
-                <td>{{ v.district }}</td>
-                <td>{{ v.incident }}</td>
-                <td>{{ v.households }}</td>
-                <td><span class="tag" :class="'bg-' + v.statusClass">{{ v.status }}</span></td>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ v.village }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ v.district }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ v.incident }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge">{{ v.households }}</td>
+                <td class="text-left p-[9px_12px] border-b border-edge"><span class="text-white rounded-full px-[10px] py-0.5 text-[11.5px] whitespace-nowrap" :class="'bg-' + v.statusClass">{{ v.status }}</span></td>
               </tr>
             </tbody>
           </table>
         </section>
-      </main>
-    </div>
-  </div>
 </template>
-
-<style scoped>
-.page { min-height: 100%; padding-bottom: 20px; }
-.page-body {
-  display: grid;
-  grid-template-columns: minmax(180px, 200px) minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px 22px;
-  align-items: start;
-}
-.col-nav { position: sticky; top: 16px; }
-.col-content { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
-
-.hero {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: #fff;
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  box-shadow: var(--shadow-card);
-}
-.hero-icon { font-size: 30px; }
-.hero h2 { font-size: 20px; }
-.hero p { margin: 2px 0 0; opacity: 0.85; font-size: 13px; }
-
-.stat-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
-.stat-card {
-  background: var(--bg-card);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-card);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.stat-num { font-family: var(--font-display); font-size: 26px; font-weight: 700; color: var(--pdm-green); }
-.stat-label { font-size: 12px; color: var(--text-muted); }
-
-.block { padding-bottom: 6px; }
-.card-title { font-weight: 700; font-size: 14px; padding: 14px 16px 8px; }
-
-.mock-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.mock-table th, .mock-table td {
-  text-align: left;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--border-soft);
-}
-.mock-table th { background: #f6f8f7; font-weight: 600; font-size: 12px; color: var(--text-muted); }
-
-.progress { display: flex; align-items: center; gap: 8px; min-width: 120px; }
-.progress .bar { height: 8px; border-radius: 999px; }
-.progress em { font-style: normal; font-size: 11.5px; color: var(--text-muted); }
-
-.bg-ok { background: var(--pdm-green-bright); }
-.bg-watch { background: var(--pdm-yellow); }
-.bg-critical { background: var(--pdm-red); }
-
-.tag { color: #fff; border-radius: 999px; padding: 2px 10px; font-size: 11.5px; white-space: nowrap; }
-
-@media (max-width: 900px) {
-  .page-body { grid-template-columns: 1fr; padding: 12px 14px; gap: 12px; }
-  .col-nav { position: static; }
-  .stat-row { grid-template-columns: 1fr 1fr; }
-  .mock-table { display: block; overflow-x: auto; }
-}
-</style>

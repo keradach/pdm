@@ -13,116 +13,23 @@ const features = [
 </script>
 
 <template>
-  <div class="footer-row">
-    <div class="card partners">
-      <div class="section-title">บูรณาการข้อมูลจากหน่วยงาน</div>
-      <div class="partner-list">
+  <div class="grid grid-cols-[3fr_1fr] gap-3 px-[22px] pb-[22px] max-[900px]:grid-cols-1 max-[900px]:px-[14px] max-[900px]:pb-[14px] max-[640px]:px-[10px] max-[640px]:pb-3">
+    <div class="card p-[14px_18px]">
+      <div class="text-[13px] font-bold text-pdm-green-deep mb-2">บูรณาการข้อมูลจากหน่วยงาน</div>
+      <div class="flex flex-wrap gap-x-[18px] gap-y-2 text-xs text-muted mb-[10px]">
         <span v-for="p in partners" :key="p" class="partner">{{ p }}</span>
       </div>
-      <div class="feature-list">
+      <div class="flex flex-wrap gap-x-[18px] gap-y-2 text-xs">
         <span v-for="f in features" :key="f.label" class="feature">{{ f.icon }} {{ f.label }}</span>
       </div>
     </div>
 
-    <div class="card contact">
-      <div class="section-title light">DOAE Contact Center</div>
-      <div class="contact-list">
-        <div class="contact-row">📞 0 2579 3926</div>
-        <div class="contact-row">✉ pdmrc@doae.go.th</div>
+    <div class="card contact p-[14px_18px] bg-gradient-to-br from-pdm-green-deep to-pdm-green text-white">
+      <div class="text-[13px] font-bold text-white mb-2">DOAE Contact Center</div>
+      <div class="contact-list flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-0.5 min-w-0">
+        <div class="contact-row inline-flex items-center text-[13px] min-w-0 break-words whitespace-nowrap shrink-0">📞 0 2579 3926</div>
+        <div class="contact-row inline-flex items-center text-[13px] min-w-0 break-words whitespace-nowrap shrink-0">✉ pdmrc@doae.go.th</div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.footer-row {
-  display: grid;
-  grid-template-columns: 3fr 1fr;
-  gap: 12px;
-  padding: 0 22px 22px;
-}
-
-.footer-row>* {
-  min-width: 0;
-}
-
-.partners,
-.contact {
-  padding: 14px 18px;
-}
-
-.section-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--pdm-green-deep);
-  margin-bottom: 8px;
-}
-
-.section-title.light {
-  color: #fff;
-}
-
-.partner-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-bottom: 10px;
-}
-
-.feature-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 18px;
-  font-size: 12px;
-}
-
-.contact {
-  background: linear-gradient(135deg, var(--pdm-green-deep), var(--pdm-green));
-  color: #fff;
-}
-
-.contact-row {
-  flex-shrink: 0;
-  white-space: nowrap;
-}
-
-.contact-list {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px 12px;
-  margin-top: 2px;
-  min-width: 0;
-}
-
-.contact-list .contact-row {
-  display: inline-flex;
-  align-items: center;
-  font-size: 13px;
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-
-@media (max-width: 900px) {
-  .footer-row {
-    grid-template-columns: 1fr;
-    padding: 0 14px 14px;
-  }
-
-  .contact-list .contact-row {
-    font-size: 13px;
-  }
-}
-
-@media (max-width: 640px) {
-  .footer-row {
-    padding: 0 10px 12px;
-  }
-
-  .contact-list .contact-row {
-    font-size: 12.5px;
-  }
-}
-</style>

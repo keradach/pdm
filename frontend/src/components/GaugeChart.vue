@@ -14,8 +14,8 @@ const dashOffset = computed(() => CIRC - (Math.min(Math.max(props.percent, 0), 1
 </script>
 
 <template>
-  <div class="gauge">
-    <svg viewBox="0 0 100 58" class="gauge-svg">
+  <div class="text-center">
+    <svg viewBox="0 0 100 58" class="w-full max-w-[130px]">
       <path
         d="M 8 50 A 42 42 0 0 1 92 50"
         fill="none"
@@ -33,14 +33,7 @@ const dashOffset = computed(() => CIRC - (Math.min(Math.max(props.percent, 0), 1
         :stroke-dashoffset="dashOffset"
       />
     </svg>
-    <div class="value" :style="{ color }">{{ percent }}%</div>
-    <div v-if="label" class="label" :style="{ color }">{{ label }}</div>
+    <div class="text-xl font-extrabold font-display -mt-1.5" :style="{ color }">{{ percent }}%</div>
+    <div v-if="label" class="text-xs mt-0.5" :style="{ color }">{{ label }}</div>
   </div>
 </template>
-
-<style scoped>
-.gauge { text-align: center; }
-.gauge-svg { width: 100%; max-width: 130px; }
-.value { font-size: 20px; font-weight: 800; font-family: var(--font-display); margin-top: -6px; }
-.label { font-size: 12px; margin-top: 2px; }
-</style>

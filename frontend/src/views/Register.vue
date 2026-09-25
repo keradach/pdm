@@ -31,20 +31,21 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="auth-page">
-    <div class="auth-card card">
-      <div class="auth-header">
-        <div class="logo">DOAE</div>
-        <h1>สมัครสมาชิกเจ้าหน้าที่</h1>
-        <p>PDM - Plant Disaster Monitoring Platform</p>
+  <div class="min-h-screen flex items-center justify-center p-5 bg-gradient-to-br from-pdm-green-deep to-pdm-green">
+    <div class="card w-full max-w-[420px] p-[36px_32px]">
+      <div class="text-center mb-6">
+        <div class="inline-block font-display font-extrabold text-[22px] bg-pdm-green-deep text-white px-4 py-2 rounded-[10px] mb-4">DOAE</div>
+        <h1 class="text-[22px] text-ink mb-1.5">สมัครสมาชิกเจ้าหน้าที่</h1>
+        <p class="text-[13px] text-muted m-0">PDM - Plant Disaster Monitoring Platform</p>
       </div>
 
-      <div v-if="auth.error" class="error-box">{{ auth.error }}</div>
+      <div v-if="auth.error" class="bg-[#fdecea] text-pdm-red border border-[#f5c6c2] rounded-[10px] p-[10px_14px] text-[13px] mb-4">{{ auth.error }}</div>
 
-      <form @submit.prevent="handleSubmit" class="auth-form">
-        <div class="field">
-          <label for="name">ชื่อ-นามสกุล</label>
+      <form @submit.prevent="handleSubmit" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[13px] font-semibold text-ink" for="name">ชื่อ-นามสกุล</label>
           <input
+    class="w-full pr-[44px] p-[11px_14px] border border-edge rounded-[10px] text-[14px] font-body focus:outline-none focus:border-pdm-green focus:shadow-[0_0_0_3px_rgba(46,125,79,0.12)]"
             id="name"
             v-model="form.name"
             type="text"
@@ -54,9 +55,10 @@ async function handleSubmit() {
           />
         </div>
 
-        <div class="field">
-          <label for="email">อีเมล</label>
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[13px] font-semibold text-ink" for="email">อีเมล</label>
           <input
+    class="w-full pr-[44px] p-[11px_14px] border border-edge rounded-[10px] text-[14px] font-body focus:outline-none focus:border-pdm-green focus:shadow-[0_0_0_3px_rgba(46,125,79,0.12)]"
             id="email"
             v-model="form.email"
             type="email"
@@ -66,18 +68,20 @@ async function handleSubmit() {
           />
         </div>
 
-        <div class="field">
-          <label for="role">บทบาท</label>
-          <select id="role" v-model="form.role">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[13px] font-semibold text-ink" for="role">บทบาท</label>
+          <select
+    class="w-full p-[11px_14px] border border-edge rounded-[10px] text-[14px] font-body bg-white focus:outline-none focus:border-pdm-green focus:shadow-[0_0_0_3px_rgba(46,125,79,0.12)]" id="role" v-model="form.role">
             <option value="staff">เจ้าหน้าที่</option>
             <option value="admin">ผู้ดูแลระบบ</option>
           </select>
         </div>
 
-        <div class="field">
-          <label for="password">รหัสผ่าน</label>
-          <div class="password-wrap">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[13px] font-semibold text-ink" for="password">รหัสผ่าน</label>
+          <div class="relative">
             <input
+    class="w-full pr-[44px] p-[11px_14px] border border-edge rounded-[10px] text-[14px] font-body focus:outline-none focus:border-pdm-green focus:shadow-[0_0_0_3px_rgba(46,125,79,0.12)]"
               id="password"
               v-model="form.password"
               :type="showPassword ? 'text' : 'password'"
@@ -88,7 +92,7 @@ async function handleSubmit() {
             />
             <button
               type="button"
-              class="toggle-btn"
+              class="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer text-base p-1.5 rounded-[6px] hover:bg-page"
               @click="showPassword = !showPassword"
             >
               {{ showPassword ? '🙈' : '👁' }}
@@ -96,10 +100,11 @@ async function handleSubmit() {
           </div>
         </div>
 
-        <div class="field">
-          <label for="password_confirmation">ยืนยันรหัสผ่าน</label>
-          <div class="password-wrap">
+        <div class="flex flex-col gap-1.5">
+          <label class="text-[13px] font-semibold text-ink" for="password_confirmation">ยืนยันรหัสผ่าน</label>
+          <div class="relative">
             <input
+    class="w-full pr-[44px] p-[11px_14px] border border-edge rounded-[10px] text-[14px] font-body focus:outline-none focus:border-pdm-green focus:shadow-[0_0_0_3px_rgba(46,125,79,0.12)]"
               id="password_confirmation"
               v-model="form.password_confirmation"
               :type="showConfirmPassword ? 'text' : 'password'"
@@ -110,7 +115,7 @@ async function handleSubmit() {
             />
             <button
               type="button"
-              class="toggle-btn"
+              class="absolute right-1.5 top-1/2 -translate-y-1/2 bg-transparent border-0 cursor-pointer text-base p-1.5 rounded-[6px] hover:bg-page"
               @click="showConfirmPassword = !showConfirmPassword"
             >
               {{ showConfirmPassword ? '🙈' : '👁' }}
@@ -118,173 +123,15 @@ async function handleSubmit() {
           </div>
         </div>
 
-        <button type="submit" class="submit-btn" :disabled="submitting">
+        <button type="submit" class="mt-1 p-3 bg-pdm-green text-white rounded-[10px] text-[15px] font-semibold font-body cursor-pointer enabled:hover:bg-pdm-green-deep disabled:opacity-60 disabled:cursor-not-allowed" :disabled="submitting">
           {{ submitting ? 'กำลังสมัครสมาชิก...' : 'สมัครสมาชิก' }}
         </button>
       </form>
 
-      <p class="switch-link">
+      <p class="text-center mt-5 text-[14px] text-muted">
         มีบัญชีอยู่แล้ว?
         <router-link to="/login">เข้าสู่ระบบ</router-link>
       </p>
     </div>
   </div>
 </template>
-
-<style scoped>
-.auth-page {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: linear-gradient(135deg, var(--pdm-green-deep), var(--pdm-green));
-}
-
-.auth-card {
-  width: 100%;
-  max-width: 420px;
-  padding: 36px 32px;
-}
-
-.auth-header {
-  text-align: center;
-  margin-bottom: 24px;
-}
-
-.logo {
-  display: inline-block;
-  font-family: var(--font-display);
-  font-weight: 800;
-  font-size: 22px;
-  background: var(--pdm-green-deep);
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 10px;
-  margin-bottom: 16px;
-}
-
-.auth-header h1 {
-  font-size: 22px;
-  color: var(--text-main);
-  margin-bottom: 6px;
-}
-
-.auth-header p {
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.error-box {
-  background: #fdecea;
-  color: var(--pdm-red);
-  border: 1px solid #f5c6c2;
-  border-radius: var(--radius-md);
-  padding: 10px 14px;
-  font-size: 13px;
-  margin-bottom: 16px;
-}
-
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.field label {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-main);
-}
-
-.field input,
-.field select {
-  padding: 11px 14px;
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  font-size: 14px;
-  font-family: var(--font-body);
-  transition: border-color 0.2s;
-  background: #fff;
-}
-
-.field input:focus,
-.field select:focus {
-  outline: none;
-  border-color: var(--pdm-green);
-  box-shadow: 0 0 0 3px rgba(46, 125, 79, 0.12);
-}
-
-.password-wrap {
-  position: relative;
-}
-
-.password-wrap input {
-  width: 100%;
-  padding-right: 44px;
-}
-
-.toggle-btn {
-  position: absolute;
-  right: 6px;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 6px;
-  border-radius: 6px;
-}
-
-.toggle-btn:hover {
-  background: var(--bg-page);
-}
-
-.submit-btn {
-  margin-top: 4px;
-  padding: 12px;
-  background: var(--pdm-green);
-  color: #fff;
-  border: none;
-  border-radius: var(--radius-md);
-  font-size: 15px;
-  font-weight: 600;
-  font-family: var(--font-body);
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.submit-btn:hover:not(:disabled) {
-  background: var(--pdm-green-deep);
-}
-
-.submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.switch-link {
-  text-align: center;
-  margin: 20px 0 0;
-  font-size: 14px;
-  color: var(--text-muted);
-}
-
-.switch-link a {
-  color: var(--pdm-green);
-  font-weight: 600;
-  text-decoration: none;
-}
-
-.switch-link a:hover {
-  text-decoration: underline;
-}
-</style>

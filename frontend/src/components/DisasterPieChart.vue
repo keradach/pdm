@@ -32,26 +32,10 @@ const options = {
 </script>
 
 <template>
-  <div class="card chart-card">
-    <div class="chart-title">ข้อความแจ้งเตือนจากแหล่งอ้างอิงได้ (พี่อุ้ม)</div>
-    <div class="chart-wrap">
+  <div class="card p-[14px]">
+    <div class="text-[13px] font-semibold mb-2">ข้อความแจ้งเตือนจากแหล่งอ้างอิงได้ (พี่อุ้ม)</div>
+    <div class="h-[210px]">
       <!-- <Doughnut :data="chartData" :options="options" /> -->
     </div>
   </div>
 </template>
-
-<style scoped>
-.chart-card {
-  padding: 14px;
-}
-
-.chart-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.chart-wrap {
-  height: 210px;
-}
-</style>

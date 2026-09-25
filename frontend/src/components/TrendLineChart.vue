@@ -51,26 +51,10 @@ const options = {
 </script>
 
 <template>
-  <div class="card chart-card">
-    <div class="chart-title">ระบบการระบาดศตรูพืช PPSF</div>
-    <div class="chart-wrap">
+  <div class="card p-[14px]">
+    <div class="text-[13px] font-semibold mb-2">ระบบการระบาดศตรูพืช PPSF</div>
+    <div class="h-[200px]">
       <!-- <Line :data="chartData" :options="options" /> -->
     </div>
   </div>
 </template>
-
-<style scoped>
-.chart-card {
-  padding: 14px;
-}
-
-.chart-title {
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: 8px;
-}
-
-.chart-wrap {
-  height: 200px;
-}
-</style>

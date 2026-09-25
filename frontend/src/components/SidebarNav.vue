@@ -6,11 +6,11 @@ const route = useRoute()
 const router = useRouter()
 
 const items = [
-  { route: '/', title: 'หน้าแรก', subtitle: 'ภาพรวมสถานการณ์', color: 'var(--pdm-orange)', icon: 'home' },
-  { route: '/warning', title: 'ระบบแจ้งเตือนภัย', subtitle: '', color: 'var(--pdm-blue)', icon: 'map' },
-  // { route: '/monitoring', title: 'แดชบอร์ดติดตาม', subtitle: 'สถานการณ์และการช่วยเหลือ', color: 'var(--pdm-green)', icon: 'chart' },
-  { route: '/knowledge', title: 'คลังความรู้สู้ภัยพิบัติด้านพืช', subtitle: '', color: 'var(--pdm-orange)', icon: 'book' },
-  { route: '/support', title: 'ระบบสนับสนุนเจ้าหน้าที่', subtitle: '', color: 'var(--pdm-purple)', icon: 'staff' },
+  { route: '/', title: 'หน้าแรก', subtitle: 'ภาพรวมสถานการณ์', color: '#e8770f', icon: 'home' },
+  { route: '/warning', title: 'ระบบแจ้งเตือนภัย', subtitle: '', color: '#2f6fb0', icon: 'map' },
+  { route: '/knowledge', title: 'คลังความรู้สู้ภัยพิบัติด้านพืช', subtitle: '', color: '#e8770f', icon: 'book' },
+  { route: '/support', title: 'ระบบสนับสนุนเจ้าหน้าที่', subtitle: '', color: '#6f4fa3', icon: 'staff' },
+  { route: '/map', title: 'แผนที่อัจฉริยะ', subtitle: '', color: '#2e7d4f', icon: 'map' },
 ]
 
 const emoji = {
@@ -25,90 +25,16 @@ const active = computed(() => route.path)
 </script>
 
 <template>
-  <nav class="side-nav">
-    <button v-for="(item, index) in items" :key="item.route" class="nav-item" :class="{ active: active === item.route }"
-      @click="router.push(item.route)">
-      <!-- <span class="num" :style="{ background: item.color }">{{ index + 1 }}</span> -->
-      <span class="icon">{{ emoji[item.icon] }}</span>
-      <span class="text">
-        <strong>{{ item.title }}</strong>
-        <small>{{ item.subtitle }}</small>
+  <nav class="flex flex-col gap-[10px] max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:pb-0.5">
+    <button v-for="(item, index) in items" :key="item.route" :class="[
+      'grow-0 shrink-0 h-[60px] flex items-center gap-[10px] border border-edge rounded-[10px] p-3 cursor-pointer text-left hover:shadow-card',
+      active === item.route ? 'border-pdm-green bg-[#f2f9f4] font-semibold' : 'bg-white',
+    ]" @click="router.push(item.route)">
+      <span class="icon text-lg">{{ emoji[item.icon] }}</span>
+      <span class="flex flex-col leading-[1] min-w-0">
+        <strong class="text-[13px]">{{ item.title }}</strong>
+        <small class="text-[11px] text-muted">{{ item.subtitle }}</small>
       </span>
     </button>
   </nav>
 </template>
-
-<style scoped>
-.side-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: var(--bg-card);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-md);
-  padding: 12px;
-  cursor: pointer;
-  text-align: left;
-  transition: box-shadow .15s, border-color .15s;
-}
-
-.nav-item:hover {
-  box-shadow: var(--shadow-card);
-}
-
-.nav-item.active {
-  border-color: var(--pdm-green);
-  background: #f2f9f4;
-}
-
-.num {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.icon {
-  font-size: 18px;
-}
-
-.text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.3;
-}
-
-.text strong {
-  font-size: 13px;
-}
-
-.text small {
-  font-size: 11px;
-  color: var(--text-muted);
-}
-
-@media (max-width: 900px) {
-  .side-nav {
-    flex-direction: row;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .nav-item {
-    flex: 0 0 190px;
-  }
-}
-</style>

@@ -231,82 +231,69 @@ const drawWeatherStationMarkers = () => {
       <hr class="my-1">
       <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>`;
 
-    if (props.rainfallPeriod === 'today' || props.rainfallPeriod === 'yesterday') {
-      // const tempDate = new Date(value.rainfall_datetime);
-      // const displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleString('th-TH', options)} น.` : ''
-      // const temp = station.temperature;
-
-    } else {
-
-      // popupContent = `${displayDate}<br>
-      // <b>สถานี: ${station}</b><br>
-      // จังหวัด: ${value.geocode.province_name.th}<br>
-      // <hr class="my-1">
-      // <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>
-      // `;
-    }
-
-    marker.bindPopup(popupContent);
+    marker.bindPopup(popupContent, { closeButton: false });
+    marker.on('mouseover', () => marker.openPopup());
+    marker.on('mouseout', () => marker.closePopup());
   });
 };
 </script>
 
 <template>
-  <div class="card map-card">
-    <div class="card-header" style="background: var(--pdm-green-deep)">
+  <div class="card overflow-hidden min-w-0">
+    <div class="card-header bg-pdm-green-deep">
       รู้ข้อมูลก่อนเกิดภัย
     </div>
 
-    <div class="card-body p-0" style="position: relative;">
-      <div class="view-switcher">
+    <div class="p-0 relative">
+      <div class="flex flex-wrap p-1 gap-1 max-[640px]:overflow-x-auto max-[640px]:flex-nowrap">
         <!-- <button :class="{ active: mapView === 'risk' }"
           @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button> -->
-        <button :class="{ active: mapView === 'rain' }"
+        <button :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
           @click="$emit('setMapView', 'rain')">ปริมาณน้ำฝนจากthaiwater</button>
-        <button :class="{ active: mapView === 'dam' }" @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
-        <button :class="{ active: mapView === 'temperature' }"
+        <button :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'dam' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']" @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
+        <button :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'temperature' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
           @click="$emit('setMapView', 'temperature')">อุณหภูมิ</button>
       </div>
 
-      <div id="map-container" ref="mapContainer"></div>
+      <div id="map-container" class="w-full h-full min-h-[500px] max-[640px]:min-h-[420px] max-[640px]:max-h-[420px]" ref="mapContainer"></div>
 
-      <div v-if="mapView === 'rain'" class="weather-controls">
-        <div class="rainfall-legend">
-          <h6>ปริมาณน้ำฝน (มม.)</h6>
-          <ul>
-            <li v-for="level in rainfallLevels" :key="level.label">
-              <span class="legend-color" :style="{ backgroundColor: level.color }"></span>
+      <div v-if="mapView === 'rain'" class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
+        <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[220px] max-[640px]:w-full">
+          <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">ปริมาณน้ำฝน (มม.)</h6>
+          <ul class="list-none p-0 m-0 text-[0.8rem]">
+            <li class="flex items-center mb-1" v-for="level in rainfallLevels" :key="level.label">
+              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]" :style="{ backgroundColor: level.color }"></span>
               {{ level.label }}
             </li>
           </ul>
         </div>
-        <div class="period-selector">
-          <h6>เลือกช่วงเวลา</h6>
-          <div class="btn-group-vertical w-100">
-            <button v-for="period in rainfallPeriods" :key="period.key" type="button" class="btn btn-sm text-start"
-              :class="{ active: rainfallPeriod === period.key }" @click="$emit('setRainfallPeriod', period.key)">
+        <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[220px] max-[640px]:w-full">
+          <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">เลือกช่วงเวลา</h6>
+          <div class="flex flex-col gap-0.5 w-full">
+            <button v-for="period in rainfallPeriods" :key="period.key" type="button" class="w-full text-left text-[13px] bg-[#f8f9fa] border border-[#dee2e6] text-[#495057] py-1.5 px-2 rounded"
+              :class="rainfallPeriod === period.key ? 'bg-pdm-green border-pdm-green-deep text-white font-semibold' : ''" @click="$emit('setRainfallPeriod', period.key)">
               {{ period.label }}
             </button>
           </div>
         </div>
       </div>
-      <div v-if="mapView === 'dam'" class="weather-controls">
-        <div class="rainfall-legend">
-          <h6>ปริมาณน้ำในเขื่อน (%)</h6>
-          <ul>
-            <li v-for="level in damWaterLevels" :key="level.label">
-              <span class="legend-color" :style="{ backgroundColor: level.color }"></span>
+      <div v-if="mapView === 'dam'" class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
+        <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[220px] max-[640px]:w-full">
+          <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">ปริมาณน้ำในเขื่อน (%)</h6>
+          <ul class="list-none p-0 m-0 text-[0.8rem]">
+            <li class="flex items-center mb-1" v-for="level in damWaterLevels" :key="level.label">
+              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]" :style="{ backgroundColor: level.color }"></span>
               {{ level.label }}
             </li>
           </ul>
         </div>
       </div>
-      <!-- <div v-if="mapView === 'temperature'" class="weather-controls">
-        <div class="rainfall-legend">
-          <h6>อุณหภูมิ</h6>
-          <ul>
-            <li v-for="level in damWaterLevels" :key="level.label">
-              <span class="legend-color" :style="{ backgroundColor: level.color }"></span>
+      <!-- <div v-if="mapView === 'temperature'" class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
+        <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[220px] max-[640px]:w-full">
+          <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">อุณหภูมิ</h6>
+          <ul class="list-none p-0 m-0 text-[0.8rem]">
+            <li class="flex items-center mb-1" v-for="level in damWaterLevels" :key="level.label">
+              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]" :style="{ backgroundColor: level.color }"></span>
               {{ level.label }}
             </li>
           </ul>
@@ -315,163 +302,3 @@ const drawWeatherStationMarkers = () => {
     </div>
   </div>
 </template>
-
-<style scoped>
-#map-container {
-  width: 100%;
-  height: 100%;
-  min-height: clamp(360px, 55vw, 500px);
-}
-
-.map-card {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.weather-controls {
-  position: absolute;
-  top: 50px;
-  right: 10px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.rainfall-legend,
-.period-selector {
-  background: rgba(255, 255, 255, 0.9);
-  padding: 10px;
-  border-radius: 5px;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.2);
-  width: 220px;
-}
-
-.rainfall-legend h6,
-.period-selector h6 {
-  margin-top: 0;
-  margin-bottom: 8px;
-  font-size: 0.9rem;
-  font-weight: bold;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 5px;
-}
-
-.rainfall-legend ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  font-size: 0.8rem;
-}
-
-.rainfall-legend li {
-  display: flex;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
-.legend-color {
-  width: 18px;
-  height: 18px;
-  margin-right: 8px;
-  border: 1px solid #ccc;
-}
-
-.btn-group-vertical .btn {
-  border-radius: 0;
-}
-
-/* .btn-group-vertical .btn:first-child {
-  border-top-left-radius: .25rem;
-  border-top-right-radius: .25rem;
-}
-
-.btn-group-vertical .btn:last-child {
-  border-top-right-radius: .25rem;
-  border-bottom-left-radius: .25rem;
-  border-bottom-right-radius: .25rem;
-} */
-
-.period-selector .btn {
-  background-color: #f8f9fa;
-  border: 1px solid #dee2e6;
-  color: #495057;
-  transition: background-color 0.2s, color 0.2s;
-}
-
-.period-selector .btn.active {
-  background-color: var(--pdm-green);
-  border-color: var(--pdm-green-deep);
-  color: #fff;
-  font-weight: 600;
-}
-
-.view-switcher {
-  display: flex;
-  flex-wrap: wrap;
-  /* background-color: var(--bg-page); */
-  /* border-radius: var(--radius-md); */
-  padding: 4px;
-  /* border: 1px solid var(--border-soft); */
-}
-
-.view-switcher button {
-  border: none;
-  background-color: #fff;
-  padding: 6px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  /* cursor: pointer; */
-  transition: background-color 0.2s, color 0.2s;
-  white-space: nowrap;
-}
-
-.view-switcher button.active {
-  background: var(--bg-page);
-  color: var(--pdm-green-deep);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-@media (max-width: 640px) {
-  #map-container {
-    height: 58vw;
-    min-height: 280px;
-    max-height: 420px;
-  }
-
-  .weather-controls {
-    position: relative;
-    top: auto;
-    right: auto;
-    padding: 10px;
-    background: var(--bg-page);
-  }
-
-  .rainfall-legend,
-  .period-selector {
-    width: 100%;
-  }
-
-  .view-switcher {
-    gap: 4px;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .view-switcher button {
-    flex: 0 0 auto;
-    padding-left: 10px;
-    padding-right: 10px;
-    font-size: 12px;
-  }
-
-  .card-header {
-    padding: 12px 14px;
-    font-size: 14px;
-  }
-}
-</style>

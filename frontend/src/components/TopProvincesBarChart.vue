@@ -35,16 +35,10 @@ const options = {
 </script>
 
 <template>
-  <div class="card chart-card">
-    <div class="chart-title">10 จังหวัด พื้นที่เสียหายสูงสุด</div>
-    <div class="chart-wrap">
+  <div class="card p-[14px]">
+    <div class="text-[13px] font-semibold mb-2">10 จังหวัด พื้นที่เสียหายสูงสุด</div>
+    <div class="h-[260px]">
       <Bar :data="chartData" :options="options" />
     </div>
   </div>
 </template>
-
-<style scoped>
-.chart-card { padding: 14px; }
-.chart-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; }
-.chart-wrap { height: 260px; }
-</style>

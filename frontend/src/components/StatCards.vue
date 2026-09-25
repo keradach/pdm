@@ -8,101 +8,25 @@ const props = defineProps({
 const cards = computed(() => {
   const s = props.summary || {}
   return [
-    { icon: '📍', label: 'จังหวัดเสี่ยงภัย', value: s.provinces_at_risk ?? '-', unit: 'จังหวัด', color: 'var(--pdm-red)' },
-    { icon: '🏘', label: 'อำเภอได้รับผลกระทบ', value: s.amphoe_affected ?? '-', unit: 'อำเภอ', color: 'var(--pdm-orange)' },
-    { icon: '🌾', label: 'เกษตรกรได้รับผลกระทบ', value: (s.farmers_affected ?? 0).toLocaleString(), unit: 'ราย', color: 'var(--pdm-green)' },
-    { icon: '📐', label: 'พื้นที่เสียหาย', value: s.damaged_area_million_rai ?? '-', unit: 'ล้านไร่', color: 'var(--pdm-blue)' },
-    { icon: '💰', label: 'จ่ายเงินช่วยเหลือแล้ว', value: (s.assistance_progress_percent ?? 0) + '%', unit: 'ความคืบหน้า', color: 'var(--pdm-purple)' },
-    { icon: '👷', label: 'เจ้าหน้าที่ลงพื้นที่', value: (s.staff_deployed ?? 0).toLocaleString(), unit: 'ทีม', color: 'var(--pdm-green-deep)' },
-    { icon: '🕗', label: 'รายงานล่าสุด', value: s.report_time ?? '-', unit: 'น.', color: 'var(--text-muted)' },
+    { icon: '📍', label: 'จังหวัดเสี่ยงภัย', value: s.provinces_at_risk ?? '-', unit: 'จังหวัด', color: '#d1352b' },
+    { icon: '🏘', label: 'อำเภอได้รับผลกระทบ', value: s.amphoe_affected ?? '-', unit: 'อำเภอ', color: '#e8770f' },
+    { icon: '🌾', label: 'เกษตรกรได้รับผลกระทบ', value: (s.farmers_affected ?? 0).toLocaleString(), unit: 'ราย', color: '#2e7d4f' },
+    { icon: '📐', label: 'พื้นที่เสียหาย', value: s.damaged_area_million_rai ?? '-', unit: 'ล้านไร่', color: '#2f6fb0' },
+    { icon: '💰', label: 'จ่ายเงินช่วยเหลือแล้ว', value: (s.assistance_progress_percent ?? 0) + '%', unit: 'ความคืบหน้า', color: '#6f4fa3' },
+    { icon: '👷', label: 'เจ้าหน้าที่ลงพื้นที่', value: (s.staff_deployed ?? 0).toLocaleString(), unit: 'ทีม', color: '#1f5c3f' },
+    { icon: '🕗', label: 'รายงานล่าสุด', value: s.report_time ?? '-', unit: 'น.', color: '#6b7b72' },
   ]
 })
 </script>
 
 <template>
-  <div class="stat-row">
-    <div v-for="c in cards" :key="c.label" class="stat-card card">
-      <div class="icon" :style="{ background: c.color + '1a', color: c.color }">{{ c.icon }}</div>
-      <div class="body">
-        <div class="value">{{ c.value }}<span class="unit">{{ c.unit }}</span></div>
-        <div class="label">{{ c.label }}</div>
+  <div class="grid grid-cols-[repeat(auto-fit,minmax(160px,1fr))] gap-3 p-[16px_22px_0] max-[480px]:grid-cols-2 max-[480px]:gap-2 max-[480px]:p-[12px_14px_0]">
+    <div v-for="c in cards" :key="c.label" class="card flex items-center gap-3 p-[14px_16px] max-[480px]:gap-2 max-[480px]:p-[10px] max-[480px]:min-w-0">
+      <div class="w-[42px] h-[42px] rounded-[10px] flex items-center justify-center text-xl shrink-0 max-[480px]:w-[34px] max-[480px]:h-[34px] max-[480px]:text-base" :style="{ background: c.color + '1a', color: c.color }">{{ c.icon }}</div>
+      <div class="flex flex-col min-w-0">
+        <div class="text-xl font-extrabold font-display max-[480px]:text-[17px] max-[480px]:whitespace-nowrap">{{ c.value }}<span class="text-[11px] font-medium text-muted ml-1 max-[480px]:text-[10px]">{{ c.unit }}</span></div>
+        <div class="text-xs text-muted mt-0.5 max-[480px]:text-[10px]">{{ c.label }}</div>
       </div>
     </div>
   </div>
 </template>
-
-<style scoped>
-.stat-row {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  gap: 12px;
-  padding: 16px 22px 0;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-}
-
-.icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  flex-shrink: 0;
-}
-
-.value {
-  font-size: 20px;
-  font-weight: 800;
-  font-family: var(--font-display);
-}
-
-.unit {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-muted);
-  margin-left: 4px;
-}
-
-.label {
-  font-size: 12px;
-  color: var(--text-muted);
-  margin-top: 2px;
-}
-
-@media (max-width: 480px) {
-  .stat-row {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-    padding: 12px 14px 0;
-  }
-
-  .stat-card {
-    gap: 8px;
-    padding: 10px;
-    min-width: 0;
-  }
-
-  .icon {
-    width: 34px;
-    height: 34px;
-    font-size: 16px;
-  }
-
-  .value {
-    font-size: 17px;
-    white-space: nowrap;
-  }
-
-  .unit,
-  .label {
-    font-size: 10px;
-  }
-}
-</style>

@@ -1,12 +1,9 @@
 <script setup>
-import HeaderBar from '@/components/HeaderBar.vue'
-import SidebarNav from '@/components/SidebarNav.vue'
-
 const theme = {
   icon: '🔔',
   title: 'ระบบแจ้งเตือนภัยและชี้เป้าหมาย',
   subtitle: 'Early Warning & Risk Maps',
-  color: 'var(--pdm-blue)',
+  color: '#2f6fb0',
 }
 
 // Mockup data (ตัวอย่างข้อมูลจำลอง)
@@ -55,25 +52,16 @@ const villageBooks = [
 ]
 </script>
 <template>
-  <div class="page">
-    <HeaderBar />
-
-    <div class="page-body">
-      <aside class="col-nav">
-        <SidebarNav />
-      </aside>
-
-      <main class="col-content">
-        <section class="hero" :style="{ background: theme.color }">
-          <span class="hero-icon">{{ theme.icon }}</span>
+  <section class="hero flex items-center gap-[14px] text-white rounded-[16px] p-[18px_20px] shadow-card" :style="{ background: theme.color }">
+          <span class="text-3xl">{{ theme.icon }}</span>
           <div>
-            <h2>{{ theme.title }}</h2>
-            <p>{{ theme.subtitle }}</p>
+            <h2 class="text-xl">{{ theme.title }}</h2>
+            <p class="mt-0.5 opacity-[0.85] text-[13px]">{{ theme.subtitle }}</p>
           </div>
         </section>
-        <div class="grid-2">
-          <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">🗺 โซนเสี่ยงภัยรายจังหวัด (Risk Map)</div>
+        <div class="grid grid-cols-2 gap-[14px] max-[1280px]:grid-cols-1">
+          <section class="card pb-1.5">
+            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">🗺 โซนเสี่ยงภัยรายจังหวัด (Risk Map)</div>
             <!-- <table class="mock-table">
             <thead>
               <tr><th>จังหวัด</th><th>อำเภอ</th><th>ระดับความเสี่ยง</th><th>ปริมาณฝน</th><th>พื้นที่กระทบ</th><th>หมายเหตุ</th></tr>
@@ -91,8 +79,8 @@ const villageBooks = [
           </table> -->
           </section>
 
-          <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">📈 คาดการณ์พื้นที่เสี่ยงอุทกภัยเดือนมกราคม 2570 จาก
+          <section class="card pb-1.5">
+            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">📈 คาดการณ์พื้นที่เสี่ยงอุทกภัยเดือนมกราคม 2570 จาก
               สสน.</div>
             <!-- <table class="mock-table">
             <thead><tr><th>ช่วงเวลา</th><th>วันที่</th><th>โอกาสฝนตก</th><th>อุณหภูมิ</th><th>ระดับความเสี่ยง</th></tr></thead>
@@ -109,8 +97,8 @@ const villageBooks = [
           </section>
         </div>
         <div class="grid-2">
-          <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">💧 ทุ่งรับน้ำ 13 ทุ่ง</div>
+          <section class="card pb-1.5">
+            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">💧 ทุ่งรับน้ำ 13 ทุ่ง</div>
             <!-- <table class="mock-table">
               <thead>
                 <tr>
@@ -132,8 +120,8 @@ const villageBooks = [
             </table> -->
           </section>
 
-          <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">🛰 พื้นที่น้ำท่วมซ้ำซาก จากกรมพัฒนาที่ดิน</div>
+          <section class="card pb-1.5">
+            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">🛰 พื้นที่น้ำท่วมซ้ำซาก จากกรมพัฒนาที่ดิน</div>
             <!-- <ul class="plain-list">
               <li v-for="s in satelliteSources" :key="s.src">
                 <span class="list-name">{{ s.src }} <em>{{ s.freq }}</em></span>
@@ -144,8 +132,8 @@ const villageBooks = [
         </div>
 
         <div class="grid-2">
-          <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">☀ จุดความร้อน hotspot</div>
+          <section class="card pb-1.5">
+            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">☀ จุดความร้อน hotspot</div>
             <!-- <table class="mock-table">
               <thead>
                 <tr>
@@ -164,8 +152,8 @@ const villageBooks = [
             </table> -->
           </section>
 
-          <section class="card block">
-            <div class="card-title" :style="{ color: theme.color }">📓 พื้นที่แล้งซ้ำซาก LDD</div>
+          <section class="card pb-1.5">
+            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">📓 พื้นที่แล้งซ้ำซาก LDD</div>
             <!-- <table class="mock-table">
               <thead>
                 <tr>
@@ -186,160 +174,4 @@ const villageBooks = [
             </table> -->
           </section>
         </div>
-      </main>
-    </div>
-  </div>
 </template>
-
-<style scoped>
-.page {
-  min-height: 100%;
-  padding-bottom: 20px;
-}
-
-.page-body {
-  display: grid;
-  grid-template-columns: minmax(180px, 200px) minmax(0, 1fr);
-  gap: 16px;
-  padding: 16px 22px;
-  align-items: start;
-}
-
-.col-nav {
-  position: sticky;
-  top: 16px;
-}
-
-.col-content {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  min-width: 0;
-}
-
-.hero {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  color: #fff;
-  border-radius: var(--radius-lg);
-  padding: 18px 20px;
-  box-shadow: var(--shadow-card);
-}
-
-.hero-icon {
-  font-size: 30px;
-}
-
-.hero h2 {
-  font-size: 20px;
-}
-
-.hero p {
-  margin: 2px 0 0;
-  opacity: 0.85;
-  font-size: 13px;
-}
-
-.block {
-  padding-bottom: 6px;
-}
-
-.card-title {
-  font-weight: 700;
-  font-size: 14px;
-  padding: 14px 16px 8px;
-}
-
-.mock-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-}
-
-.mock-table th,
-.mock-table td {
-  text-align: left;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--border-soft);
-  vertical-align: top;
-}
-
-.mock-table th {
-  background: #f6f8f7;
-  font-weight: 600;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-
-.mock-table tr:hover td {
-  background: #fafcfb;
-}
-
-.tag {
-  color: #fff;
-  border-radius: 999px;
-  padding: 2px 10px;
-  font-size: 11.5px;
-  white-space: nowrap;
-}
-
-.grid-2 {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
-}
-
-.plain-list {
-  list-style: none;
-  margin: 0;
-  padding: 4px 16px 14px;
-  display: grid;
-  gap: 10px;
-}
-
-.plain-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 13px;
-}
-
-.list-name {
-  font-weight: 600;
-}
-
-.list-name em {
-  font-style: normal;
-  color: var(--text-muted);
-  font-weight: 400;
-}
-
-.list-desc {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-@media (max-width: 1280px) {
-  .grid-2 {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .page-body {
-    grid-template-columns: 1fr;
-    padding: 12px 14px;
-    gap: 12px;
-  }
-
-  .col-nav {
-    position: static;
-  }
-
-  .mock-table {
-    display: block;
-    overflow-x: auto;
-  }
-}
-</style>
