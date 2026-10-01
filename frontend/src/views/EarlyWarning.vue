@@ -1,4 +1,5 @@
 <script setup>
+
 const theme = {
   icon: '🔔',
   title: 'ระบบแจ้งเตือนภัยและชี้เป้าหมาย',
@@ -52,17 +53,19 @@ const villageBooks = [
 ]
 </script>
 <template>
-  <section class="hero flex items-center gap-[14px] text-white rounded-[16px] p-[18px_20px] shadow-card" :style="{ background: theme.color }">
-          <span class="text-3xl">{{ theme.icon }}</span>
-          <div>
-            <h2 class="text-xl">{{ theme.title }}</h2>
-            <p class="mt-0.5 opacity-[0.85] text-[13px]">{{ theme.subtitle }}</p>
-          </div>
-        </section>
-        <div class="grid grid-cols-2 gap-[14px] max-[1280px]:grid-cols-1">
-          <section class="card pb-1.5">
-            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">🗺 โซนเสี่ยงภัยรายจังหวัด (Risk Map)</div>
-            <!-- <table class="mock-table">
+  <section class="hero flex items-center gap-[14px] text-white rounded-[16px] p-[18px_20px] shadow-card"
+    :style="{ background: theme.color }">
+    <span class="text-3xl">{{ theme.icon }}</span>
+    <div>
+      <h2 class="text-xl">{{ theme.title }}</h2>
+      <p class="mt-0.5 opacity-[0.85] text-[13px]">{{ theme.subtitle }}</p>
+    </div>
+  </section>
+  <div class="grid grid-cols-2 gap-[14px] max-[1280px]:grid-cols-1">
+    <section class="card pb-1.5">
+      <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">🗺 โซนเสี่ยงภัยรายจังหวัด
+        (Risk Map)</div>
+      <!-- <table class="mock-table">
             <thead>
               <tr><th>จังหวัด</th><th>อำเภอ</th><th>ระดับความเสี่ยง</th><th>ปริมาณฝน</th><th>พื้นที่กระทบ</th><th>หมายเหตุ</th></tr>
             </thead>
@@ -77,12 +80,13 @@ const villageBooks = [
               </tr>
             </tbody>
           </table> -->
-          </section>
+    </section>
 
-          <section class="card pb-1.5">
-            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">📈 คาดการณ์พื้นที่เสี่ยงอุทกภัยเดือนมกราคม 2570 จาก
-              สสน.</div>
-            <!-- <table class="mock-table">
+    <section class="card pb-1.5">
+      <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">📈
+        คาดการณ์พื้นที่เสี่ยงอุทกภัยเดือนมกราคม 2570 จาก
+        สสน.</div>
+      <!-- <table class="mock-table">
             <thead><tr><th>ช่วงเวลา</th><th>วันที่</th><th>โอกาสฝนตก</th><th>อุณหภูมิ</th><th>ระดับความเสี่ยง</th></tr></thead>
             <tbody>
               <tr v-for="f in forecasts" :key="f.day">
@@ -94,12 +98,12 @@ const villageBooks = [
               </tr>
             </tbody>
           </table> -->
-          </section>
-        </div>
-        <div class="grid-2">
-          <section class="card pb-1.5">
-            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">💧 ทุ่งรับน้ำ 13 ทุ่ง</div>
-            <!-- <table class="mock-table">
+    </section>
+  </div>
+  <div class="grid-2">
+    <section class="card pb-1.5">
+      <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">💧 ทุ่งรับน้ำ 13 ทุ่ง</div>
+      <!-- <table class="mock-table">
               <thead>
                 <tr>
                   <th>ลุ่มน้ำ</th>
@@ -118,23 +122,24 @@ const villageBooks = [
                 </tr>
               </tbody>
             </table> -->
-          </section>
+    </section>
 
-          <section class="card pb-1.5">
-            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">🛰 พื้นที่น้ำท่วมซ้ำซาก จากกรมพัฒนาที่ดิน</div>
-            <!-- <ul class="plain-list">
+    <section class="card pb-1.5">
+      <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">🛰 พื้นที่น้ำท่วมซ้ำซาก
+        จากกรมพัฒนาที่ดิน</div>
+      <!-- <ul class="plain-list">
               <li v-for="s in satelliteSources" :key="s.src">
                 <span class="list-name">{{ s.src }} <em>{{ s.freq }}</em></span>
                 <span class="list-desc">{{ s.usage }}</span>
               </li>
             </ul> -->
-          </section>
-        </div>
+    </section>
+  </div>
 
-        <div class="grid-2">
-          <section class="card pb-1.5">
-            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">☀ จุดความร้อน hotspot</div>
-            <!-- <table class="mock-table">
+  <div class="grid-2">
+    <section class="card pb-1.5">
+      <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">☀ จุดความร้อน hotspot</div>
+      <!-- <table class="mock-table">
               <thead>
                 <tr>
                   <th>จังหวัด</th>
@@ -150,11 +155,12 @@ const villageBooks = [
                 </tr>
               </tbody>
             </table> -->
-          </section>
+    </section>
 
-          <section class="card pb-1.5">
-            <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">📓 พื้นที่แล้งซ้ำซาก LDD</div>
-            <!-- <table class="mock-table">
+    <section class="card pb-1.5">
+      <div class="font-bold text-[14px] p-[14px_16px_8px]" :style="{ color: theme.color }">📓 พื้นที่แล้งซ้ำซาก LDD
+      </div>
+      <!-- <table class="mock-table">
               <thead>
                 <tr>
                   <th>ตำบล</th>
@@ -172,6 +178,6 @@ const villageBooks = [
                 </tr>
               </tbody>
             </table> -->
-          </section>
-        </div>
+    </section>
+  </div>
 </template>

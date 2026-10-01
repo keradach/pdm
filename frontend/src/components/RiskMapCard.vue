@@ -248,21 +248,28 @@ const drawWeatherStationMarkers = () => {
       <div class="flex flex-wrap p-1 gap-1 max-[640px]:overflow-x-auto max-[640px]:flex-nowrap">
         <!-- <button :class="{ active: mapView === 'risk' }"
           @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button> -->
-        <button :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
+        <button
+          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
           @click="$emit('setMapView', 'rain')">ปริมาณน้ำฝนจากthaiwater</button>
-        <button :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'dam' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']" @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
-        <button :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'temperature' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
+        <button
+          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'dam' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
+          @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
+        <button
+          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'temperature' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
           @click="$emit('setMapView', 'temperature')">อุณหภูมิ</button>
       </div>
 
-      <div id="map-container" class="w-full h-full min-h-[500px] max-[640px]:min-h-[420px] max-[640px]:max-h-[420px]" ref="mapContainer"></div>
+      <div id="map-container" class="w-full h-full min-h-[500px] max-[640px]:min-h-[420px] max-[640px]:max-h-[420px]"
+        ref="mapContainer"></div>
 
-      <div v-if="mapView === 'rain'" class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
+      <div v-if="mapView === 'rain'"
+        class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
         <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[220px] max-[640px]:w-full">
           <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">ปริมาณน้ำฝน (มม.)</h6>
           <ul class="list-none p-0 m-0 text-[0.8rem]">
             <li class="flex items-center mb-1" v-for="level in rainfallLevels" :key="level.label">
-              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]" :style="{ backgroundColor: level.color }"></span>
+              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]"
+                :style="{ backgroundColor: level.color }"></span>
               {{ level.label }}
             </li>
           </ul>
@@ -270,19 +277,23 @@ const drawWeatherStationMarkers = () => {
         <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[220px] max-[640px]:w-full">
           <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">เลือกช่วงเวลา</h6>
           <div class="flex flex-col gap-0.5 w-full">
-            <button v-for="period in rainfallPeriods" :key="period.key" type="button" class="w-full text-left text-[13px] bg-[#f8f9fa] border border-[#dee2e6] text-[#495057] py-1.5 px-2 rounded"
-              :class="rainfallPeriod === period.key ? 'bg-pdm-green border-pdm-green-deep text-white font-semibold' : ''" @click="$emit('setRainfallPeriod', period.key)">
+            <button v-for="period in rainfallPeriods" :key="period.key" type="button"
+              class="w-full text-left text-[13px] bg-[#f8f9fa] border border-[#dee2e6] text-[#495057] py-1.5 px-2 rounded"
+              :class="rainfallPeriod === period.key ? 'bg-pdm-green border-pdm-green-deep text-white font-semibold' : ''"
+              @click="$emit('setRainfallPeriod', period.key)">
               {{ period.label }}
             </button>
           </div>
         </div>
       </div>
-      <div v-if="mapView === 'dam'" class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
+      <div v-if="mapView === 'dam'"
+        class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
         <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[220px] max-[640px]:w-full">
           <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">ปริมาณน้ำในเขื่อน (%)</h6>
           <ul class="list-none p-0 m-0 text-[0.8rem]">
             <li class="flex items-center mb-1" v-for="level in damWaterLevels" :key="level.label">
-              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]" :style="{ backgroundColor: level.color }"></span>
+              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]"
+                :style="{ backgroundColor: level.color }"></span>
               {{ level.label }}
             </li>
           </ul>

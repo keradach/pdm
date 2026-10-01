@@ -13,6 +13,7 @@ import TrendLineChart from '@/components/TrendLineChart.vue'
 import DisasterPieChart from '@/components/DisasterPieChart.vue'
 import DisasterTypeCard from '@/components/DisasterTypeCard.vue'
 import PartnerLogos from '@/components/PartnerLogos.vue'
+import WeatherCard from '@/components/WeatherCard.vue'
 
 const store = useDashboardStore()
 const {
@@ -44,12 +45,12 @@ onMounted(() => store.fetchAll())
   <div v-if="loading" class="loading-banner bg-[#eef4ff] text-pdm-blue rounded-[10px] p-[10px_16px] text-[13px]">
     กำลังโหลดข้อมูล...</div>
 
-  <!-- <div class="top-row">
-      <StatCards :summary="summary" />
-      <div class="weather-slot">
-        <WeatherCard />
-      </div>
-    </div> -->
+  <div class="top-row">
+    <!-- <StatCards :summary="summary" /> -->
+    <div class="weather-slot">
+      <WeatherCard />
+    </div>
+  </div>
   <!-- <StatCards :summary="summary" /> -->
 
   <section class="flex flex-col gap-4">

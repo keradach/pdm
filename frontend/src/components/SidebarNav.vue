@@ -10,7 +10,7 @@ const items = [
   { route: '/warning', title: 'ระบบแจ้งเตือนภัย', subtitle: '', color: '#2f6fb0', icon: 'map' },
   { route: '/knowledge', title: 'คลังความรู้สู้ภัยพิบัติด้านพืช', subtitle: '', color: '#e8770f', icon: 'book' },
   { route: '/support', title: 'ระบบสนับสนุนเจ้าหน้าที่', subtitle: '', color: '#6f4fa3', icon: 'staff' },
-  { route: '/map', title: 'แผนที่อัจฉริยะ', subtitle: '', color: '#2e7d4f', icon: 'map' },
+  { route: '/map', title: 'แผนที่วิเคราะห์ข้อมูล', subtitle: '', color: '#2e7d4f', icon: 'map' },
 ]
 
 const emoji = {
