@@ -29,6 +29,7 @@ const {
   error,
   rainfallData,
   damWaterData,
+  temperatureData,
   mapView,
   rainfallPeriod,
 } = storeToRefs(store)
@@ -58,8 +59,9 @@ onMounted(() => store.fetchAll())
       <div class="flex min-w-0">
         <RiskMapCard class="flex-1 w-full min-w-0" :provinces="provinces" :selected-province="selectedProvince"
           :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
-          :dam-water-data="damWaterData" @select-province="store.selectProvince($event)"
-          @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
+          :dam-water-data="damWaterData" :temperature-data="temperatureData"
+          @select-province="store.selectProvince($event)" @set-map-view="store.setMapView($event)"
+          @set-rainfall-period="store.setRainfallPeriod($event)" />
       </div>
       <div
         class="flex flex-col gap-3 min-w-0 max-[900px]:grid max-[900px]:grid-cols-2 max-[640px]:flex max-[640px]:flex-col">

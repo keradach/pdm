@@ -9,6 +9,7 @@ const props = defineProps({
   selectedProvince: Object,
   rainfallData: Object,
   damWaterData: Array,
+  temperatureData: Array,
   mapView: String, // 'risk', 'weather', or 'dam'
   rainfallPeriod: String, // 'today', 'yesterday', 'last_3_days', 'last_7_days'
 });
@@ -52,6 +53,22 @@ const damWaterLevels = [
   { max: Infinity, label: 'ล้นเขื่อน (> 100%)', color: '#dc3545' },
 ];
 
+const temperatureLevels = [
+  { max: 24, label: 'อากาศเย็น (< 24°C)', color: '#3b82f6' },
+  { max: 28, label: 'ปกติ/สบาย (24-28°C)', color: '#10b981' },
+  { max: 32, label: 'ค่อนข้างร้อน (28-32°C)', color: '#eab308' },
+  { max: 35, label: 'อากาศร้อน (32-35°C)', color: '#f97316' },
+  { max: Infinity, label: 'ร้อนจัด (> 35°C)', color: '#ef4444' },
+];
+
+const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' };
+
+const getTemperatureLevel = (val) => {
+  const num = Number(val);
+  if (!Number.isFinite(num)) return null;
+  return temperatureLevels.find(l => num <= l.max) || temperatureLevels[temperatureLevels.length - 1];
+};
+
 const getRainfallColor = (value) => {
   if (value === null || value === undefined || value <= 0) return rainfallLevels.find(l => l.min === 0).color;
   for (const level of rainfallLevels) {
@@ -90,7 +107,7 @@ onBeforeUnmount(() => {
   }
 });
 
-watch(() => [props.mapView, props.provinces, props.rainfallData, props.damWaterData, props.rainfallPeriod], () => {
+watch(() => [props.mapView, props.provinces, props.rainfallData, props.damWaterData, props.temperatureData, props.rainfallPeriod], () => {
   updateMap();
 }, { deep: true });
 
@@ -103,12 +120,54 @@ const updateMap = () => {
   markersLayer.clearLayers();
 
   if (props.mapView === 'temperature') {
-    drawProvinceRiskMarkers();
+    drawTemperatureMarkers();
   } else if (props.mapView === 'rain') {
     drawWeatherStationMarkers();
   } else if (props.mapView === 'dam') {
     drawDamWaterMarkers();
   }
+};
+
+const drawTemperatureMarkers = () => {
+  if (!props.temperatureData || !props.temperatureData.length) return;
+
+  props.temperatureData.forEach(station => {
+    const lat = station.station_lat;
+    const lon = station.station_lon;
+    if (lat == null || lon == null) return;
+
+    const temp = station.temperature;
+    const level = getTemperatureLevel(temp);
+    const color = level ? level.color : '#6c757d';
+
+    const marker = L.circleMarker([lat, lon], {
+      radius: 6,
+      fillColor: color,
+      color: '#fff',
+      weight: 1.5,
+      opacity: 1,
+      fillOpacity: 0.9
+    }).addTo(markersLayer);
+
+    const stationName = station.station_name_th || station.station_name_en || 'ไม่ระบุชื่อสถานี';
+    const province = station.province_name_th || 'ไม่ระบุจังหวัด';
+    const region = station.region_name_th || '';
+    const minTemp = station.temperature_min_today != null ? `${station.temperature_min_today}°C` : '-';
+    const maxTemp = station.temperature_max_today != null ? `${station.temperature_max_today}°C` : '-';
+    const humidity = station.humidity != null ? `${station.humidity}%` : '-';
+    const displayDate = station.datetime_utc7 ? new Date(station.datetime_utc7).toLocaleString('th-TH', options) : '-';
+
+    marker.bindPopup(`<b>${stationName}</b><br>
+      จังหวัด: ${province} ${region ? `(${region})` : ''}<br>
+      <hr class="my-1">
+      <b>อุณหภูมิปัจจุบัน: <span style="color: ${color}; font-size: 1.1em; font-weight: bold;">${temp != null ? `${temp}°C` : 'N/A'}</span></b><br>
+      อุณหภูมิต่ำสุด/สูงสุดวันนี้: ${minTemp} / ${maxTemp}<br>
+      ความชื้นสัมพัทธ์: ${humidity}<br>
+      เวลาตรวจวัด: ${displayDate}`);
+
+    marker.on('mouseover', () => marker.openPopup());
+    marker.on('mouseout', () => marker.closePopup());
+  });
 };
 
 const getDamWaterLevel = (value) => {
@@ -137,34 +196,37 @@ const drawDamWaterMarkers = () => {
     const damName = dam.dam_name?.th || dam.dam_name?.en || 'ไม่ระบุชื่อเขื่อน';
     const storage = damRecord.dam_storage ?? 'N/A';
     const capacity = dam.normal_storage ?? dam.max_storage ?? 'N/A';
+    const displayDate = damRecord.dam_date ? new Date(damRecord.dam_date).toLocaleString('th-TH', options) : 'N/A';
     marker.bindPopup(`<b>เขื่อน${damName}</b><br>
       ระดับ: ${level.label}<br>
       ปริมาณน้ำ: ${storage} ล้าน ลบ.ม.<br>
       ความจุปกติ: ${capacity} ล้าน ลบ.ม.<br>
-      วันที่ข้อมูล: ${damRecord.dam_date || 'N/A'}`);
+      วันที่ข้อมูล: ${displayDate}`);
+    marker.on('mouseover', () => marker.openPopup());
+    marker.on('mouseout', () => marker.closePopup());
   });
 };
 
-const drawProvinceRiskMarkers = () => {
-  if (!props.provinces) return;
-  props.provinces.forEach(p => {
-    const lon = p.lng ?? p.lon;
-    if (p.lat == null || lon == null) return;
+// const drawProvinceRiskMarkers = () => {
+//   if (!props.provinces) return;
+//   props.provinces.forEach(p => {
+//     const lon = p.lng ?? p.lon;
+//     if (p.lat == null || lon == null) return;
 
-    const color = riskLevelColors[p.risk_level] || '#6c757d';
-    const marker = L.circleMarker([p.lat, lon], {
-      radius: 8,
-      fillColor: color,
-      color: '#fff',
-      weight: 2,
-      opacity: 1,
-      fillOpacity: 0.8
-    }).addTo(markersLayer);
+//     const color = riskLevelColors[p.risk_level] || '#6c757d';
+//     const marker = L.circleMarker([p.lat, lon], {
+//       radius: 8,
+//       fillColor: color,
+//       color: '#fff',
+//       weight: 2,
+//       opacity: 1,
+//       fillOpacity: 0.8
+//     }).addTo(markersLayer);
 
-    marker.bindPopup(`<b>${p.name_th}</b><br>ระดับความเสี่ยง: ${p.risk_level}`);
-    marker.on('click', () => emit('select-province', p));
-  });
-};
+//     marker.bindPopup(`<b>${p.name_th}</b><br>ระดับความเสี่ยง: ${p.risk_level}`);
+//     marker.on('click', () => emit('select-province', p));
+//   });
+// };
 
 const drawWeatherStationMarkers = () => {
   var dataSet = [];
@@ -194,7 +256,7 @@ const drawWeatherStationMarkers = () => {
     var popupContent = '';
     var province_name = '';
     var displayDate = '';
-    const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Bangkok' };
+
     const tempDate = new Date(value.rainfall_datetime);
     switch (props.rainfallPeriod) {
       case 'today':
@@ -299,17 +361,19 @@ const drawWeatherStationMarkers = () => {
           </ul>
         </div>
       </div>
-      <!-- <div v-if="mapView === 'temperature'" class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
+      <div v-if="mapView === 'temperature'"
+        class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
         <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[220px] max-[640px]:w-full">
-          <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">อุณหภูมิ</h6>
+          <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">อุณหภูมิ (°C)</h6>
           <ul class="list-none p-0 m-0 text-[0.8rem]">
-            <li class="flex items-center mb-1" v-for="level in damWaterLevels" :key="level.label">
-              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]" :style="{ backgroundColor: level.color }"></span>
+            <li class="flex items-center mb-1" v-for="level in temperatureLevels" :key="level.label">
+              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]"
+                :style="{ backgroundColor: level.color }"></span>
               {{ level.label }}
             </li>
           </ul>
         </div>
-      </div> -->
+      </div>
     </div>
   </div>
 </template>

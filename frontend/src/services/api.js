@@ -40,8 +40,10 @@ export default {
   getAlerts: () => api.get("/alerts").then((r) => r.data),
 
   // ---- TMD API ----
-  getAwsNow: () =>
-    tmdApi.get("https://wxmap.tmd.go.th/api/awsnow").then((r) => r.data),
+  getTemperatureStations: () =>
+    tmdApi
+      .get("https://wxmap.tmd.go.th/api/awsnow")
+      .then((r) => r.data?.data || []),
   getAwsRainfall: () =>
     tmdApi.get("https://wxmap.tmd.go.th/api/awsrainfall").then((r) => r.data),
   // ---- Thai Water API ----
