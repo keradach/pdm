@@ -1,5 +1,6 @@
 <script setup>
 import { onMounted, ref } from "vue";
+import api from "@/services/api";
 
 const forecast = ref([]);
 const locationName = ref("");
@@ -45,24 +46,16 @@ async function loadWeather() {
 
   try {
     const { latitude, longitude } = await getDevicePosition();
-    const params = new URLSearchParams({
-      latitude,
-      longitude,
-      daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-      timezone: "Asia/Bangkok",
-      forecast_days: "7",
-    });
     const [weatherResult, locationResult] = await Promise.allSettled([
-      fetch(`https://api.open-meteo.com/v1/forecast?${params}`),
-      fetch(`https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=jsonv2&addressdetails=1&zoom=14&accept-language=th`),
+      api.getWeatherForecast(latitude, longitude),
+      api.getReverseGeocode(latitude, longitude),
     ]);
 
-
     if (weatherResult.status === "rejected") throw weatherResult.reason;
-    const weatherResponse = weatherResult.value;
-    if (!weatherResponse.ok) throw new Error("ไม่สามารถโหลดข้อมูลพยากรณ์อากาศได้");
-    const weatherData = await weatherResponse.json();
-
+    const weatherData = weatherResult.value;
+    if (!weatherData || !weatherData.daily) {
+      throw new Error("ไม่สามารถโหลดข้อมูลพยากรณ์อากาศได้");
+    }
 
     const daily = weatherData.daily;
     forecast.value = daily.time.map((date, index) => ({
@@ -73,9 +66,8 @@ async function loadWeather() {
       rainChance: daily.precipitation_probability_max[index],
     }));
 
-    if (locationResult.status === "fulfilled" && locationResult.value.ok) {
-      const { address = {} } = await locationResult.value.json();
-      console.log("address:", address);
+    if (locationResult.status === "fulfilled" && locationResult.value) {
+      const { address = {} } = locationResult.value;
       const subdistrict = address.suburb;
       const district = address.quarter;
       const province = address.city;

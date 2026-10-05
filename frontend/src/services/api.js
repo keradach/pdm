@@ -1,8 +1,5 @@
 import axios from "axios";
 
-const tmdApi = axios.create({ headers: { Accept: "application/json" } });
-const thaiWaterApi = axios.create({ headers: { Accept: "application/json" } });
-
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
   headers: { Accept: "application/json" },
@@ -34,43 +31,26 @@ export default {
     api.get(`/provinces/top-damaged?limit=${limit}`).then((r) => r.data),
   getTrend: () => api.get("/reports/trend").then((r) => r.data),
   getBreakdown: () =>
-    api
-      .get("https://efarmer.doae.go.th/api/disaster/breakdown")
-      .then((r) => r.data),
+    api.get("/external/disaster/breakdown").then((r) => r.data),
   getAlerts: () => api.get("/alerts").then((r) => r.data),
 
-  // ---- TMD API ----
+  // ---- Third-party APIs (proxied via the Laravel backend, cached in DB) ----
   getTemperatureStations: () =>
-    tmdApi
-      .get("https://wxmap.tmd.go.th/api/awsnow")
-      .then((r) => r.data?.data || []),
-  getAwsRainfall: () =>
-    tmdApi.get("https://wxmap.tmd.go.th/api/awsrainfall").then((r) => r.data),
-  // ---- Thai Water API ----
-  getRain24h: () =>
-    tmdApi
-      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_24h")
-      .then((r) => r.data),
-  getRainToday: () =>
-    tmdApi
-      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_today")
-      .then((r) => r.data),
-  getRainYesterday: () =>
-    tmdApi
-      .get(
-        "https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_yesterday",
-      )
-      .then((r) => r.data),
-  getRain3d: () =>
-    tmdApi
-      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/provinces/rain3d")
-      .then((r) => r.data),
-  getRain7d: () =>
-    tmdApi
-      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/provinces/rain7d")
-      .then((r) => r.data),
+    api.get("/external/temperature-stations").then((r) => r.data?.data || []),
+  getAwsRainfall: () => api.get("/external/rainfall").then((r) => r.data),
+  getRain24h: () => api.get("/external/rain/24h").then((r) => r.data),
+  getRainToday: () => api.get("/external/rain/today").then((r) => r.data),
+  getRainYesterday: () => api.get("/external/rain/yesterday").then((r) => r.data),
+  getRain3d: () => api.get("/external/rain/3d").then((r) => r.data),
+  getRain7d: () => api.get("/external/rain/7d").then((r) => r.data),
   getDamWater: () =>
-    thaiWaterApi
-      .get("https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam")
-      .then((r) => r.data?.data?.dam_daily || []),
+    api.get("/external/dam-water").then((r) => r.data?.data?.dam_daily || []),
+  getWeatherForecast: (latitude, longitude) =>
+    api
+      .get(`/external/weather/forecast?lat=${latitude}&lng=${longitude}`)
+      .then((r) => r.data),
+  getReverseGeocode: (latitude, longitude) =>
+    api
+      .get(`/external/weather/reverse-geocode?lat=${latitude}&lng=${longitude}`)
+      .then((r) => r.data),
 };

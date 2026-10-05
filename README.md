@@ -88,6 +88,35 @@ docker compose up -d --build
 | GET    | `/api/reports/breakdown`     | สัดส่วนประเภทภัยพิบัติ                                     |
 | GET    | `/api/alerts`                | ประกาศแจ้งเตือนที่ active อยู่ (แบนเนอร์สีแดง)             |
 
+#### Third-party API endpoints (responses cached into the DB)
+
+Every third-party API response (TMD, Thai Water, eFarmer, Open-Meteo, Nominatim)
+is persisted into the `api_caches` table **before** it is served. The Laravel
+backend proxies each upstream call, stores the payload in the DB, and the
+frontend reads from the DB only (it never calls upstream directly). If an
+upstream call fails or is slow, the last cached copy from the DB is returned.
+
+| Method | Endpoint                              | Source               | TTL |
+| ------ | ------------------------------------- | -------------------- | --- |
+| GET    | `/api/external/disaster/breakdown`    | eFarmer              | 15m |
+| GET    | `/api/external/rain/today`            | Thai Water           | 5m  |
+| GET    | `/api/external/rain/yesterday`        | Thai Water           | 30m |
+| GET    | `/api/external/rain/24h`              | Thai Water           | 5m  |
+| GET    | `/api/external/rain/3d`               | Thai Water           | 30m |
+| GET    | `/api/external/rain/7d`               | Thai Water           | 60m |
+| GET    | `/api/external/dam-water`             | Thai Water (dam)     | 30m |
+| GET    | `/api/external/temperature-stations`  | TMD (awsnow)         | 15m |
+| GET    | `/api/external/rainfall`              | TMD (awsrainfall)    | 5m  |
+| GET    | `/api/external/weather/forecast?lat&lng`        | Open-Meteo  | 60m |
+| GET    | `/api/external/weather/reverse-geocode?lat&lng` | Nominatim   | 24h |
+
+To fetch every source immediately (e.g. via cron) and persist into the DB:
+
+```bash
+php artisan api:cache          # respects each endpoint TTL
+php artisan api:cache --force  # force re-fetch all endpoints
+```
+
 ---
 
 ## วิธีรัน (Docker) — Local Development / Testing

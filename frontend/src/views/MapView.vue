@@ -173,7 +173,7 @@
                                     <p class="font-bold text-gray-800 truncate">{{ item.type === 'dam' ? '💧' : '🌡️' }}
                                         {{ item.title }}</p>
                                     <p class="text-[10px] text-gray-500 truncate">จ.{{ item.province }} {{ item.subtitle
-                                    }}</p>
+                                        }}</p>
                                 </div>
                                 <span
                                     :class="['px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0', item.badgeClass]">
@@ -339,7 +339,7 @@
                                 <div class="flex justify-between text-xs mb-1">
                                     <span class="text-gray-600">ปริมาณน้ำในเขื่อนรวมทั้งประเทศ</span>
                                     <span class="font-semibold text-emerald-600">{{ nationalWaterSummary.percent
-                                    }}%</span>
+                                        }}%</span>
                                 </div>
                                 <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden mb-1.5">
                                     <div class="bg-gradient-to-r from-emerald-400 to-emerald-600 h-2 rounded-full transition-all duration-700"
@@ -358,7 +358,7 @@
                     <div>
                         <div class="flex items-center justify-between mb-2">
                             <span class="text-xs font-bold text-gray-700">รายชื่อเขื่อน ({{ waterReservoirData.length
-                            }})</span>
+                                }})</span>
                             <span class="text-[10px] text-gray-400">คลิกเขื่อนเพื่อดูพิกัด</span>
                         </div>
                         <div class="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin pr-1.5 overscroll-contain">
@@ -380,7 +380,7 @@
                                 </div>
                                 <div class="flex justify-between text-[10px] text-gray-400">
                                     <span>{{ dam.currentVolume.toLocaleString() }} / {{ dam.maxCapacity.toLocaleString()
-                                    }} ล้าน ลบ.ม.</span>
+                                        }} ล้าน ลบ.ม.</span>
                                     <span>{{ dam.statusText }}</span>
                                 </div>
                             </div>
@@ -894,7 +894,8 @@ const regionCoordinates = {
     'ภาคตะวันออกเฉียงเหนือ': { center: [16.0, 103.2], zoom: 7 },
     'ภาคกลาง': { center: [14.8, 100.5], zoom: 7 },
     'ภาคตะวันออก': { center: [13.2, 101.5], zoom: 7 },
-    'ภาคใต้': { center: [8.5, 99.5], zoom: 7 },
+    'ภาคใต้ฝั่งตะวันออก': { center: [8.5, 99.5], zoom: 7 },
+    'ภาคใต้ฝั่งตะวันตก': { center: [8.5, 99.5], zoom: 7 },
 };
 
 const zoomToRegion = (regionName) => {

@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AlertController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DisasterReportController;
+use App\Http\Controllers\Api\ExternalApiController;
 use App\Http\Controllers\Api\ProvinceController;
 use Illuminate\Support\Facades\Route;
 
@@ -32,6 +33,30 @@ Route::prefix('reports')->group(function () {
 });
 
 Route::get('/alerts', [AlertController::class, 'active']);
+
+/*
+|--------------------------------------------------------------------------
+| Third-party API proxies (responses cached into the `api_caches` table).
+| The frontend reads from these DB-backed endpoints instead of calling the
+| upstream TMD / Thai Water / eFarmer / Open-Meteo / Nominatim services.
+|--------------------------------------------------------------------------
+*/
+Route::prefix('external')->group(function () {
+    Route::get('/disaster/breakdown', [ExternalApiController::class, 'disasterBreakdown']);
+
+    Route::get('/rain/today', [ExternalApiController::class, 'rainToday']);
+    Route::get('/rain/yesterday', [ExternalApiController::class, 'rainYesterday']);
+    Route::get('/rain/24h', [ExternalApiController::class, 'rain24h']);
+    Route::get('/rain/3d', [ExternalApiController::class, 'rain3d']);
+    Route::get('/rain/7d', [ExternalApiController::class, 'rain7d']);
+    Route::get('/dam-water', [ExternalApiController::class, 'damWater']);
+
+    Route::get('/temperature-stations', [ExternalApiController::class, 'temperatureStations']);
+    Route::get('/rainfall', [ExternalApiController::class, 'rainfall']);
+
+    Route::get('/weather/forecast', [ExternalApiController::class, 'weatherForecast']);
+    Route::get('/weather/reverse-geocode', [ExternalApiController::class, 'reverseGeocode']);
+});
 
 /*
 |--------------------------------------------------------------------------
