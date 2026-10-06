@@ -4,116 +4,230 @@ namespace App\Services;
 
 use App\Models\ApiCache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 /**
- * Fetch third-party APIs while persisting every raw response into the
- * `api_caches` table. The frontend only ever talks to the Laravel proxy
- * endpoints (which read from this table), so data comes from the DB first
- * and the upstream API is only hit once its cache has expired (TTL).
- *
- * If an upstream call fails but we have a stale DB copy, the stale copy is
- * returned instead of erroring out.
+ * Service สำหรับดึงข้อมูลจาก API ต้นทางภายนอก (Thai Water, TMD, eFarmer ฯลฯ)
+ * 
+ * หลักการทำงาน (DB-First & Time Series):
+ * 1. ตรวจสอบข้อมูลในฐานข้อมูล (DB) ก่อนเสมอ
+ * 2. ถ้าใน DB มีข้อมูลอยู่แล้ว -> ดึงข้อมูลจาก DB ส่งให้ Frontend ทันที (รวดเร็วและไม่พึ่งพาเน็ตภายนอก)
+ * 3. ถ้าใน DB ยังไม่มีข้อมูล (หรือขึ้นรอบวันใหม่) -> เรียก API จากต้นทาง นำมาบันทึกลง DB เป็น Time Series
+ * 4. หาก API ต้นทางล่มหรือ Timeout -> ใช้ข้อมูลเดิมที่มีใน DB สำรองตอบกลับเสมอ
  */
 class ExternalApiService
 {
     /**
-     * Resolve an endpoint from the database cache, falling back to a live
-     * upstream fetch that is then persisted to the database.
-     *
-     * @param  string    $endpoint   unique cache key (e.g. "thaiwater:rain/today")
-     * @param  callable  $fetcher    closure that performs the upstream request
-     * @param  int       $ttlSeconds how long a DB copy is considered fresh
-     * @param  bool      $force      ignore TTL and always re-fetch
-     * @return mixed                 the JSON payload (array / scalar / string)
+     * Standardized HTTP client with browser headers, timeout, and SSL bypass.
      */
-    public function fetch(string $endpoint, callable $fetcher, int $ttlSeconds = 300, bool $force = false): mixed
+    protected function httpGet(string $url, int $timeout = 60): mixed
     {
-        $now = now();
-        $cached = ApiCache::where('endpoint', $endpoint)->first();
+        $response = Http::timeout($timeout)
+            ->connectTimeout(15)
+            ->withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept' => 'application/json, text/plain, */*',
+            ])
+            ->withoutVerifying()
+            ->get($url);
 
-        if (
-            ! $force && $cached && $cached->fetched_at &&
-            ($cached->fetched_at->getTimestamp() + $ttlSeconds) > $now->getTimestamp()
-        ) {
-            return $cached->payload;
+        if (!$response->successful()) {
+            throw new \Exception("External API returned HTTP {$response->status()} for URL: {$url}");
         }
 
+        return $response->json();
+    }
+
+    /**
+     * Generic DB-First resolver:
+     * ตรวจสอบว่าใน DB มีข้อมูลหรือไม่ ถ้ามีแล้วให้ดึงจาก DB
+     * ถ้ายังไม่มี จึงเรียก API ต้นทางแล้วนำมาเก็บลง DB
+     *
+     * @param string $endpoint Cache key in DB
+     * @param callable $fetcher Upstream HTTP request closure
+     * @param int|null $ttlSeconds อายุของข้อมูล (วินาที) ถ้า null จะดึงจาก DB เสมอตราบเท่าที่มีข้อมูล
+     * @param bool $force บังคับดึงข้อมูลใหม่จากต้นทาง
+     */
+    public function fetch(string $endpoint, callable $fetcher, ?int $ttlSeconds = null, bool $force = false): mixed
+    {
+        $now = now();
+        $cached = null;
+
+        try {
+            $cached = ApiCache::where('endpoint', $endpoint)->first();
+        } catch (\Throwable $e) {
+            Log::warning("ApiCache DB read error for {$endpoint}: " . $e->getMessage());
+        }
+
+        // ตรวจสอบว่าใน DB มีข้อมูลอยู่แล้วหรือไม่
+        $hasDataInDb = $cached && !empty($cached->payload);
+
+        // ถ้ามีข้อมูลใน DB แล้ว และไม่ได้สั่ง force:
+        if (!$force && $hasDataInDb) {
+            // กรณีไม่มี TTL (เช่น ข้อมูลประจำวัน/ประวัติศาสตร์) หรือข้อมูลยังไม่หมดอายุ: ดึงจาก DB ทันที
+            if ($ttlSeconds === null || ($cached->fetched_at && ($cached->fetched_at->getTimestamp() + $ttlSeconds) > $now->getTimestamp())) {
+                return $cached->payload;
+            }
+        }
+
+        // ถ้าใน DB ตรวจแล้วยังไม่มีข้อมูล (หรือสั่ง force=true หรือหมดอายุรอบใหม่):
         try {
             $payload = $fetcher();
         } catch (\Throwable $e) {
-            // Upstream unreachable → keep the last DB copy (best effort).
-            if ($cached && $cached->fetched_at) {
+            Log::error("Failed fetching external API for {$endpoint}: " . $e->getMessage());
+
+            // หากเรียกต้นทางไม่สำเร็จ แต่ใน DB เคยมีข้อมูลเดิม -> ให้ดึงข้อมูลเดิมใน DB ตอบกลับเสมอ
+            if ($hasDataInDb) {
                 return $cached->payload;
             }
 
-            throw $e;
+            return [
+                'result' => 'FAILED',
+                'message' => 'Upstream service unavailable: ' . $e->getMessage(),
+                'data' => [],
+            ];
         }
 
-        if ($cached) {
-            $cached->update(['payload' => $payload, 'fetched_at' => $now]);
-        } else {
-            ApiCache::create(['endpoint' => $endpoint, 'payload' => $payload, 'fetched_at' => $now]);
+        // นำข้อมูลที่ได้มาบันทึกเก็บไว้ใน DB
+        if ($payload !== null) {
+            try {
+                if ($cached) {
+                    $cached->update(['payload' => $payload, 'fetched_at' => $now]);
+                } else {
+                    ApiCache::create(['endpoint' => $endpoint, 'payload' => $payload, 'fetched_at' => $now]);
+                }
+            } catch (\Throwable $e) {
+                Log::error("Failed saving ApiCache for {$endpoint}: " . $e->getMessage());
+            }
         }
 
         return $payload;
     }
 
     // ------------------------------------------------------------------
-    // eFarmer
+    // Thai Water API (Rainfall Time Series & Dams)
     // ------------------------------------------------------------------
 
-    public function disasterBreakdown(bool $force = false): mixed
+    /**
+     * ข้อมูลปริมาณฝนเมื่อวาน (Time Series รายวัน)
+     * - ตรวจว่าใน DB มีข้อมูลของเมื่อวานแล้วหรือยัง
+     * - ถ้ามีแล้ว -> ดึงจาก DB ตอบกลับทันที 100% ไม่ต้องยิง API ภายนอกซ้ำ
+     * - ถ้ายังไม่มี -> ดึงจาก Thai Water บันทึกเป็น Time Series เก็บใน DB ทั้ง endpoint ปัจจุบันและ snapshot ตามวันที่
+     */
+    public function rainYesterday(bool $force = false, ?string $date = null): mixed
     {
-        $url = 'https://efarmer.doae.go.th/api/disaster/breakdown';
+        $yesterdayDate = $date ?: now()->subDay()->format('Y-m-d');
+        $timeSeriesKey = "thaiwater:rain:history:{$yesterdayDate}";
+        $endpoint = 'thaiwater:rain/yesterday';
 
-        return $this->fetch('efarmer:disaster/breakdown', fn() => Http::get($url)->json(), 900, $force);
+        // 1. ตรวจสอบใน DB ก่อนว่ามีข้อมูลของวันดังกล่าวแล้วหรือไม่
+        $cachedHistory = ApiCache::where('endpoint', $timeSeriesKey)->whereNotNull('payload')->first();
+        if (!$force && $cachedHistory && !empty($cachedHistory->payload)) {
+            return $cachedHistory->payload;
+        }
+
+        $cachedEndpoint = ApiCache::where('endpoint', $endpoint)->whereNotNull('payload')->first();
+        // ถ้าถูก fetch มาในวันนี้แล้ว ถือว่ามีข้อมูลของรอบเมื่อวานสมบูรณ์แล้ว -> ดึงจาก DB ทันที
+        if (!$force && $cachedEndpoint && !empty($cachedEndpoint->payload) && $cachedEndpoint->fetched_at?->isToday()) {
+            return $cachedEndpoint->payload;
+        }
+
+        // 2. ถ้าใน DB ตรวจแล้วยังไม่มีข้อมูล -> เรียก API ต้นทาง
+        $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_yesterday';
+        
+        try {
+            $payload = $this->httpGet($url, 90);
+        } catch (\Throwable $e) {
+            Log::error("Failed fetching rainYesterday: " . $e->getMessage());
+
+            // สำรอง: ถ้ามีข้อมูลเดิมใน DB ให้ใช้แทนทันที
+            if ($cachedEndpoint && !empty($cachedEndpoint->payload)) {
+                return $cachedEndpoint->payload;
+            }
+
+            return ['result' => 'FAILED', 'data' => []];
+        }
+
+        // 3. บันทึกข้อมูลที่ได้ลง DB เป็น Time Series Snapshot และ Endpoint หลัก
+        if (!empty($payload) && is_array($payload) && ($payload['result'] ?? '') === 'OK') {
+            $now = now();
+            ApiCache::updateOrCreate(
+                ['endpoint' => $endpoint],
+                ['payload' => $payload, 'fetched_at' => $now]
+            );
+            ApiCache::updateOrCreate(
+                ['endpoint' => $timeSeriesKey],
+                ['payload' => $payload, 'fetched_at' => $now]
+            );
+        }
+
+        return $payload;
     }
 
-    // ------------------------------------------------------------------
-    // Thai Water API (rainfall / dam)
-    // ------------------------------------------------------------------
-
+    /**
+     * ข้อมูลปริมาณฝนวันนี้
+     * - ตรวจใน DB ถ้ามีข้อมูลแล้วดึงจาก DB
+     * - อัปเดต snapshot เป็น Time Series รายวัน
+     */
     public function rainToday(bool $force = false): mixed
     {
+        $todayDate = now()->format('Y-m-d');
+        $timeSeriesKey = "thaiwater:rain:history:{$todayDate}";
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_today';
 
-        return $this->fetch('thaiwater:rain/today', fn() => Http::get($url)->json(), 300, $force);
-    }
+        // ตรวจสอบใน DB ก่อน (อายุแคช 10 นาทีสำหรับข้อมูลระหว่างวัน)
+        $payload = $this->fetch('thaiwater:rain/today', fn() => $this->httpGet($url, 60), 600, $force);
 
-    public function rainYesterday(bool $force = false): mixed
-    {
-        $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_yesterday';
+        // บันทึก snapshot ของวันปัจจุบันลง time series ด้วย
+        if (!empty($payload) && is_array($payload) && ($payload['result'] ?? '') === 'OK') {
+            ApiCache::updateOrCreate(
+                ['endpoint' => $timeSeriesKey],
+                ['payload' => $payload, 'fetched_at' => now()]
+            );
+        }
 
-        return $this->fetch('thaiwater:rain/yesterday', fn() => Http::get($url)->json(), 1800, $force);
+        return $payload;
     }
 
     public function rain24h(bool $force = false): mixed
     {
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_24h';
 
-        return $this->fetch('thaiwater:rain/24h', fn() => Http::get($url)->json(), 300, $force);
+        return $this->fetch('thaiwater:rain/24h', fn() => $this->httpGet($url, 60), 600, $force);
     }
 
     public function rain3d(bool $force = false): mixed
     {
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/provinces/rain3d';
 
-        return $this->fetch('thaiwater:rain/3d', fn() => Http::get($url)->json(), 1800, $force);
+        return $this->fetch('thaiwater:rain/3d', fn() => $this->httpGet($url, 60), 1800, $force);
     }
 
     public function rain7d(bool $force = false): mixed
     {
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/provinces/rain7d';
 
-        return $this->fetch('thaiwater:rain/7d', fn() => Http::get($url)->json(), 3600, $force);
+        return $this->fetch('thaiwater:rain/7d', fn() => $this->httpGet($url, 60), 3600, $force);
     }
 
     public function damWater(bool $force = false): mixed
     {
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam';
 
-        return $this->fetch('thaiwater:analyst/dam', fn() => Http::get($url)->json(), 1800, $force);
+        return $this->fetch('thaiwater:analyst/dam', fn() => $this->httpGet($url, 45), 1800, $force);
     }
+
+    // ------------------------------------------------------------------
+    // eFarmer (Disaster Breakdown)
+    // ------------------------------------------------------------------
+
+    public function disasterBreakdown(bool $force = false): mixed
+    {
+        $url = 'https://efarmer.doae.go.th/api/disaster/breakdown';
+
+        return $this->fetch('efarmer:disaster/breakdown', fn() => $this->httpGet($url, 30), 1800, $force);
+    }
+
     // ------------------------------------------------------------------
     // TMD (Thailand Meteorological Department)
     // ------------------------------------------------------------------
@@ -122,14 +236,14 @@ class ExternalApiService
     {
         $url = 'https://wxmap.tmd.go.th/api/awsnow';
 
-        return $this->fetch('tmd:awsnow', fn() => Http::get($url)->json(), 900, $force);
+        return $this->fetch('tmd:awsnow', fn() => $this->httpGet($url, 30), 900, $force);
     }
 
     public function rainfall(bool $force = false): mixed
     {
         $url = 'https://wxmap.tmd.go.th/api/awsrainfall';
 
-        return $this->fetch('tmd:awsrainfall', fn() => Http::get($url)->json(), 300, $force);
+        return $this->fetch('tmd:awsrainfall', fn() => $this->httpGet($url, 30), 600, $force);
     }
 
     // ------------------------------------------------------------------
@@ -145,7 +259,7 @@ class ExternalApiService
             $longitude
         );
 
-        return $this->fetch('open-meteo:forecast:' . $coords, fn() => Http::get($url)->json(), 3600, $force);
+        return $this->fetch('open-meteo:forecast:' . $coords, fn() => $this->httpGet($url, 30), 3600, $force);
     }
 
     public function reverseGeocode(float $latitude, float $longitude, bool $force = false): mixed
@@ -157,7 +271,21 @@ class ExternalApiService
             $longitude
         );
 
-        return $this->fetch('nominatim:reverse:' . $coords, fn() => Http::get($url)->json(), 86400, $force);
+        return $this->fetch('nominatim:reverse:' . $coords, fn() => $this->httpGet($url, 30), 86400, $force);
+    }
+
+    /**
+     * ดึงรายการวันที่ที่บันทึกข้อมูล Time Series ไว้ในระบบ
+     * @return array<string>
+     */
+    public function getAvailableRainHistoryDates(): array
+    {
+        return ApiCache::where('endpoint', 'like', 'thaiwater:rain:history:%')
+            ->orderBy('endpoint', 'desc')
+            ->pluck('endpoint')
+            ->map(fn($k) => str_replace('thaiwater:rain:history:', '', $k))
+            ->values()
+            ->all();
     }
 
     /**

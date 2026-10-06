@@ -23,14 +23,25 @@ class ExternalApiController extends Controller
     }
 
     // Thai Water API
-    public function rainToday(): JsonResponse
+    public function rainToday(Request $request): JsonResponse
     {
-        return response()->json($this->external->rainToday());
+        $force = $request->boolean('force', false);
+        return response()->json($this->external->rainToday($force));
     }
 
-    public function rainYesterday(): JsonResponse
+    public function rainYesterday(Request $request): JsonResponse
     {
-        return response()->json($this->external->rainYesterday());
+        $force = $request->boolean('force', false);
+        $date = $request->query('date');
+        return response()->json($this->external->rainYesterday($force, $date));
+    }
+
+    public function rainHistory(): JsonResponse
+    {
+        return response()->json([
+            'result' => 'OK',
+            'available_dates' => $this->external->getAvailableRainHistoryDates(),
+        ]);
     }
 
     public function rain24h(): JsonResponse

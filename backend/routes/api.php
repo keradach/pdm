@@ -46,6 +46,7 @@ Route::prefix('external')->group(function () {
 
     Route::get('/rain/today', [ExternalApiController::class, 'rainToday']);
     Route::get('/rain/yesterday', [ExternalApiController::class, 'rainYesterday']);
+    Route::get('/rain/history', [ExternalApiController::class, 'rainHistory']);
     Route::get('/rain/24h', [ExternalApiController::class, 'rain24h']);
     Route::get('/rain/3d', [ExternalApiController::class, 'rain3d']);
     Route::get('/rain/7d', [ExternalApiController::class, 'rain7d']);
