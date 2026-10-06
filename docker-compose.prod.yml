@@ -35,7 +35,10 @@ services:
     volumes:
       - ./.env:/var/www/.env:ro
     networks:
-      - pdm-net
+      pdm-net:
+        aliases:
+          - frontend
+          - backend-nginx
 
   # ----------------------------------------------------------------------------
   # Nginx Web Server for Backend API
@@ -52,7 +55,10 @@ services:
       - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
       - ./backend/public:/var/www/public:ro
     networks:
-      - pdm-net
+      pdm-net:
+        aliases:
+          - frontend
+          - backend
 
   # ----------------------------------------------------------------------------
   # Vue 3 Frontend - Built static assets served by Nginx (:80)
@@ -72,8 +78,10 @@ services:
     ports:
       - "${WEB_PORT:-80}:80"
     networks:
-      - pdm-net
-
+      pdm-net:
+        aliases:
+          - backend-nginx
+          - backend
 networks:
   pdm-net:
     driver: bridge
