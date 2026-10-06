@@ -14,7 +14,7 @@ services:
   # Oracle Database (shared by both modes)
   # ---------------------------------------------------------------------
   oracle-db:
-    # profiles: ["local"]
+    profiles: ["local"]
     image: gvenzl/oracle-free:23-slim
     container_name: pdm-oracle-db
     restart: unless-stopped
@@ -120,8 +120,8 @@ services:
     image: pdm-backend:latest
     container_name: pdm-prod-backend
     restart: unless-stopped
-    depends_on:
-      - oracle-db
+    # depends_on:
+    #   - oracle-db
     env_file:
       - ./backend/.env
     environment:

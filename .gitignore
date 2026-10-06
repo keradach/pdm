@@ -26,7 +26,7 @@ Homestead.yaml
 Thumbs.db
 .env
 .env.example
-.env.production
+.env.production.example
 .env.production.local
 /backend/.env.production
 /backend/.env.production.local

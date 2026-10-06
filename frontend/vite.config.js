@@ -14,5 +14,11 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: ["pdmrc.doae.go.th"],
+    proxy: {
+      "/api": {
+        target: process.env.VITE_BACKEND_PROXY_URL || "http://localhost:8000",
+        changeOrigin: true,
+      },
+    },
   },
 });
