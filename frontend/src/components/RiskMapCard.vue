@@ -20,6 +20,13 @@ const emit = defineEmits(['select-province', 'set-map-view', 'set-rainfall-perio
 const mapContainer = ref(null);
 let map = null;
 let markersLayer = new L.LayerGroup();
+// Per-view caches (keyed by 'lat,lng') so Leaflet markers get reused across
+// renders instead of being destroyed & recreated on every tab/period change.
+const markerCache = {
+  rain: new Map(),
+  dam: new Map(),
+  temperature: new Map(),
+};
 
 const riskLevelColors = {
   critical: '#dc3545',
@@ -44,6 +51,8 @@ const rainfallPeriods = [
   { key: 'last_3_days', label: 'ฝนสะสม 3 วัน' },
   { key: 'last_7_days', label: 'ฝนสะสม 7 วัน' },
 ];
+
+const periodLabelMap = Object.freeze({ today: 'ฝนสะสมวันนี้', yesterday: 'ฝนสะสมเมื่อวาน', 'last_3_days': 'ฝนสะสม 3 วัน', 'last_7_days': 'ฝนสะสม 7 วัน' });
 
 const damWaterLevels = [
   { max: 30, label: 'น้อยวิกฤต (<= 30%)', color: '#0d6efd' },
@@ -107,29 +116,92 @@ onBeforeUnmount(() => {
   }
 });
 
-watch(() => [props.mapView, props.provinces, props.rainfallData, props.damWaterData, props.temperatureData, props.rainfallPeriod], () => {
-  updateMap();
-}, { deep: true });
-
-watch(() => props.selectedProvince, (newVal) => {
-  // No-op: Keep the map zoomed out to the whole country.
-});
+// Coalesce rapid successive changes into one render on the next animation
+// frame so the UI thread stays responsive while switching tabs / periods.
+let updateFrame = 0;
+const scheduleUpdate = () => {
+  if (updateFrame) return;
+  updateFrame = requestAnimationFrame(() => {
+    updateFrame = 0;
+    updateMap();
+  });
+};
 
 const updateMap = () => {
   if (!map) return;
   markersLayer.clearLayers();
 
   if (props.mapView === 'temperature') {
-    drawTemperatureMarkers();
+    renderReusableMarkers('temperature', buildTemperatureItems());
   } else if (props.mapView === 'rain') {
-    drawWeatherStationMarkers();
+    renderReusableMarkers('rain', buildRainItems());
   } else if (props.mapView === 'dam') {
-    drawDamWaterMarkers();
+    renderReusableMarkers('dam', buildDamItems());
   }
 };
 
-const drawTemperatureMarkers = () => {
-  if (!props.temperatureData || !props.temperatureData.length) return;
+// Reuses existing Leaflet circle markers keyed by lat,lng so switching rainfall
+// periods (or refreshing a view) only updates styles/popups instead of tearing
+// down and rebuilding every marker layer on the map.
+const renderReusableMarkers = (viewKey, items) => {
+  const cache = markerCache[viewKey];
+  const seen = new Set();
+
+  items.forEach(item => {
+    const key = `${item.lat},${item.lng}`;
+    seen.add(key);
+
+    let marker = cache.get(key);
+    if (!marker) {
+      marker = L.circleMarker([item.lat, item.lng], { radius: 1 });
+      marker.on('mouseover', () => marker.openPopup());
+      marker.on('mouseout', () => marker.closePopup());
+      cache.set(key, marker);
+    }
+
+    // `updateMap()` calls `markersLayer.clearLayers()` first, so EVERY marker
+    // — whether newly created or reused from the cache — must be (re-)added to
+    // the layer group, otherwise reused markers silently drop off the map
+    // (leaving the count short and their popups unbound).
+    marker.addTo(markersLayer);
+    marker.setStyle({
+      radius: item.style.radius,
+      weight: item.style.weight,
+      opacity: item.style.opacity ?? 1,
+      color: item.style.color ?? '#fff',
+      fillColor: item.style.fillColor,
+      fillOpacity: item.style.fillOpacity ?? 1,
+    });
+    marker.setPopupContent(item.popup);
+  });
+
+  // Remove cached markers that are no longer part of the current dataset.
+  for (const [key, marker] of cache) {
+    if (!seen.has(key)) {
+      markersLayer.removeLayer(marker);
+      cache.delete(key);
+    }
+  }
+};
+
+// Watch the view / period triggers and the data sources separately. Avoid a
+// single `deep: true` watcher over the combined array, which made Vue deep-walk
+// the entire nested props on every reactive tick and blocked the main thread
+// when clicking a tab or period button.
+watch(() => props.mapView, scheduleUpdate);
+watch(() => props.rainfallPeriod, scheduleUpdate);
+watch(
+  () => [props.provinces, props.rainfallData, props.damWaterData, props.temperatureData],
+  scheduleUpdate
+);
+
+watch(() => props.selectedProvince, (_newVal) => {
+  // No-op: Keep the map zoomed out to the whole country.
+});
+
+const buildTemperatureItems = () => {
+  const items = [];
+  if (!props.temperatureData || !props.temperatureData.length) return items;
 
   props.temperatureData.forEach(station => {
     const lat = station.station_lat;
@@ -140,15 +212,6 @@ const drawTemperatureMarkers = () => {
     const level = getTemperatureLevel(temp);
     const color = level ? level.color : '#6c757d';
 
-    const marker = L.circleMarker([lat, lon], {
-      radius: 6,
-      fillColor: color,
-      color: '#fff',
-      weight: 1.5,
-      opacity: 1,
-      fillOpacity: 0.9
-    }).addTo(markersLayer);
-
     const stationName = station.station_name_th || station.station_name_en || 'ไม่ระบุชื่อสถานี';
     const province = station.province_name_th || 'ไม่ระบุจังหวัด';
     const region = station.region_name_th || '';
@@ -157,17 +220,17 @@ const drawTemperatureMarkers = () => {
     const humidity = station.humidity != null ? `${station.humidity}%` : '-';
     const displayDate = station.datetime_utc7 ? new Date(station.datetime_utc7).toLocaleString('th-TH', options) : '-';
 
-    marker.bindPopup(`<b>${stationName}</b><br>
+    const popup = `<b>${stationName}</b><br>
       จังหวัด: ${province} ${region ? `(${region})` : ''}<br>
       <hr class="my-1">
       <b>อุณหภูมิปัจจุบัน: <span style="color: ${color}; font-size: 1.1em; font-weight: bold;">${temp != null ? `${temp}°C` : 'N/A'}</span></b><br>
       อุณหภูมิต่ำสุด/สูงสุดวันนี้: ${minTemp} / ${maxTemp}<br>
       ความชื้นสัมพัทธ์: ${humidity}<br>
-      เวลาตรวจวัด: ${displayDate}`);
+      เวลาตรวจวัด: ${displayDate}`;
 
-    marker.on('mouseover', () => marker.openPopup());
-    marker.on('mouseout', () => marker.closePopup());
+    items.push({ lat, lng: lon, style: { radius: 6, weight: 1.5, color: '#fff', fillColor: color, fillOpacity: 0.9 }, popup });
   });
+  return items;
 };
 
 const getDamWaterLevel = (value) => {
@@ -176,35 +239,28 @@ const getDamWaterLevel = (value) => {
   return damWaterLevels.find(level => numericValue <= level.max) || damWaterLevels[0];
 };
 
-const drawDamWaterMarkers = () => {
-  if (!props.damWaterData) return;
+const buildDamItems = () => {
+  const items = [];
+  if (!props.damWaterData) return items;
 
   props.damWaterData.forEach(damRecord => {
     const dam = damRecord.dam;
     const level = getDamWaterLevel(damRecord.dam_storage_percent);
     if (!dam || !level || dam.dam_lat == null || dam.dam_long == null) return;
 
-    const marker = L.circleMarker([dam.dam_lat, dam.dam_long], {
-      radius: 7,
-      fillColor: level.color,
-      color: '#fff',
-      weight: 2,
-      opacity: 1,
-      fillOpacity: 0.9
-    }).addTo(markersLayer);
-
     const damName = dam.dam_name?.th || dam.dam_name?.en || 'ไม่ระบุชื่อเขื่อน';
     const storage = damRecord.dam_storage ?? 'N/A';
     const capacity = dam.normal_storage ?? dam.max_storage ?? 'N/A';
     const displayDate = damRecord.dam_date ? new Date(damRecord.dam_date).toLocaleString('th-TH', options) : 'N/A';
-    marker.bindPopup(`<b>เขื่อน${damName}</b><br>
+    const popup = `<b>เขื่อน${damName}</b><br>
       ระดับ: ${level.label}<br>
       ปริมาณน้ำ: ${storage} ล้าน ลบ.ม.<br>
       ความจุปกติ: ${capacity} ล้าน ลบ.ม.<br>
-      วันที่ข้อมูล: ${displayDate}`);
-    marker.on('mouseover', () => marker.openPopup());
-    marker.on('mouseout', () => marker.closePopup());
+      วันที่ข้อมูล: ${displayDate}`;
+
+    items.push({ lat: dam.dam_lat, lng: dam.dam_long, style: { radius: 7, weight: 2, color: '#fff', fillColor: level.color, fillOpacity: 0.9 }, popup });
   });
+  return items;
 };
 
 // const drawProvinceRiskMarkers = () => {
@@ -228,22 +284,21 @@ const drawDamWaterMarkers = () => {
 //   });
 // };
 
-const drawWeatherStationMarkers = () => {
-  var dataSet = [];
+const getRainfallDataSet = () => {
+  const d = props.rainfallData?.data;
   switch (props.rainfallPeriod) {
+    case 'yesterday': return d?.yesterday || [];
+    case 'last_3_days': return d?.['3d'] || [];
+    case 'last_7_days': return d?.['7d'] || [];
     case 'today':
-      dataSet = props.rainfallData?.data.today || [];
-      break;
-    case 'yesterday':
-      dataSet = props.rainfallData?.data.yesterday || [];
-      break;
-    case 'last_3_days':
-      dataSet = props.rainfallData?.data['3d'] || [];
-      break;
-    case 'last_7_days':
-      dataSet = props.rainfallData?.data['7d'] || [];
-      break;
+    default: return d?.today || [];
   }
+};
+
+const buildRainItems = () => {
+  const items = [];
+  const periodLabel = periodLabelMap[props.rainfallPeriod] || '';
+  const dataSet = getRainfallDataSet();
 
   dataSet.forEach(value => {
     const lat = value.station.tele_station_lat;
@@ -252,10 +307,8 @@ const drawWeatherStationMarkers = () => {
     if (lat == null || lon == null) return;
 
     let rainfallValue = null;
-    let periodLabel = '';
-    var popupContent = '';
-    var province_name = '';
-    var displayDate = '';
+    let provinceName = '';
+    let displayDate = '';
 
     const tempDate = new Date(value.rainfall_datetime);
     switch (props.rainfallPeriod) {
@@ -263,40 +316,30 @@ const drawWeatherStationMarkers = () => {
       case 'yesterday':
         rainfallValue = value.rainfall_value;
         displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleString('th-TH', options)} น.` : '';
-        province_name = value.geocode.province_name.th;
+        provinceName = value.geocode.province_name.th;
         break;
       case 'last_3_days':
         rainfallValue = value.rain_3d;
         displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}` : '';
-        province_name = value.geocode.province_name.th;
+        provinceName = value.geocode.province_name.th;
         break;
       case 'last_7_days':
         displayDate = tempDate ? `วันที่ปรับปรุง: ${tempDate.toLocaleDateString('th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}` : '';
         rainfallValue = value.rain_7d;
-        province_name = value.geocode.province_name.th;
+        provinceName = value.geocode.province_name.th;
         break;
     }
-    periodLabel = rainfallPeriods.find(p => p.key === props.rainfallPeriod)?.label || '';
 
     const color = getRainfallColor(rainfallValue);
-    const marker = L.circleMarker([lat, lon], {
-      radius: 3,
-      fillColor: color,
-      weight: 0.6,
-      opacity: 1,
-      fillOpacity: 1
-    }).addTo(markersLayer);
-
-    popupContent = `${displayDate}<br>
+    const popup = `${displayDate}<br>
       <b>สถานี: ${station}</b><br>
-      จังหวัด: ${province_name}<br>
+      จังหวัด: ${provinceName}<br>
       <hr class="my-1">
       <b>${periodLabel}: ${rainfallValue ?? 'N/A'} มม.</b><br>`;
 
-    marker.bindPopup(popupContent, { closeButton: false });
-    marker.on('mouseover', () => marker.openPopup());
-    marker.on('mouseout', () => marker.closePopup());
+    items.push({ lat, lng: lon, style: { radius: 3, weight: 0.6, color, fillColor: color, fillOpacity: 1 }, popup });
   });
+  return items;
 };
 </script>
 
