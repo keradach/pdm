@@ -14,7 +14,7 @@ const props = defineProps({
   rainfallPeriod: String, // 'today', 'yesterday', 'last_3_days', 'last_7_days'
 });
 
-const emit = defineEmits(['select-province', 'set-map-view', 'set-rainfall-period']);
+const emit = defineEmits(['select-province', 'set-map-view', 'setMapView', 'set-rainfall-period', 'setRainfallPeriod']);
 
 // --- Leaflet Map Setup ---
 const mapContainer = ref(null);
@@ -113,7 +113,11 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (map) {
     map.remove();
+    map = null;
   }
+  markerCache.rain.clear();
+  markerCache.dam.clear();
+  markerCache.temperature.clear();
 });
 
 // Coalesce rapid successive changes into one render on the next animation
@@ -153,10 +157,17 @@ const renderReusableMarkers = (viewKey, items) => {
 
     let marker = cache.get(key);
     if (!marker) {
-      marker = L.circleMarker([item.lat, item.lng], { radius: 1 });
+      marker = L.circleMarker([item.lat, item.lng], { radius: item.style.radius || 1 });
+      marker.bindPopup(item.popup, { closeButton: false, autoPan: false });
       marker.on('mouseover', () => marker.openPopup());
       marker.on('mouseout', () => marker.closePopup());
       cache.set(key, marker);
+    } else {
+      if (marker.getPopup()) {
+        marker.setPopupContent(item.popup);
+      } else {
+        marker.bindPopup(item.popup, { closeButton: false, autoPan: false });
+      }
     }
 
     // `updateMap()` calls `markersLayer.clearLayers()` first, so EVERY marker
@@ -172,7 +183,6 @@ const renderReusableMarkers = (viewKey, items) => {
       fillColor: item.style.fillColor,
       fillOpacity: item.style.fillOpacity ?? 1,
     });
-    marker.setPopupContent(item.popup);
   });
 
   // Remove cached markers that are no longer part of the current dataset.
