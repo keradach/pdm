@@ -39,7 +39,7 @@ async function handleLogout() {
         target="_blank"
         rel="noopener"
       >
-        https://pdmrc.doae.go.th
+        https://pdmc.doae.go.th
       </a> -->
 
       <!-- Not logged in: show login / register links -->
