@@ -57,7 +57,14 @@ Route::prefix('external')->group(function () {
 
     Route::get('/weather/forecast', [ExternalApiController::class, 'weatherForecast']);
     Route::get('/weather/reverse-geocode', [ExternalApiController::class, 'reverseGeocode']);
+
+    // efarmer.doae.go.th — พื้นที่ยังไม่เก็บเกี่ยว
+    Route::post('/none-produce', [ExternalApiController::class, 'noneProduce']);
+
+    // riskmap.doae.go.th — ปริมาณน้ำฝนเฉลี่ย 24 ชม.
+    Route::get('/rain-average', [ExternalApiController::class, 'rainAverage']);
 });
+
 
 /*
 |--------------------------------------------------------------------------

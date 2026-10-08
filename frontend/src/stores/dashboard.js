@@ -16,8 +16,15 @@ export const useDashboardStore = defineStore("dashboard", {
     rainfallData: null,
     damWaterData: [],
     temperatureData: [],
-    mapView: "rain", // 'risk' or 'rain' or 'dam'
+    mapView: "rain", // 'risk' or 'rain' or 'dam' or 'rain_avg'
     rainfallPeriod: "today", // 'today', 'yesterday', 'last_3_days', 'last_7_days'
+
+    // --- ใหม่: พื้นที่ยังไม่เก็บเกี่ยว (efarmer.doae.go.th) ---
+    noneProduceData: [],
+    noneProduceDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+
+    // --- ใหม่: ปริมาณน้ำฝนเฉลี่ย 24 ชม. (riskmap.doae.go.th) ---
+    rainAverageData: [],
   }),
 
   actions: {
@@ -39,6 +46,8 @@ export const useDashboardStore = defineStore("dashboard", {
           rain7d,
           damWaterData,
           temperatureData,
+          noneProduceResult,
+          rainAverageResult,
         ] = await Promise.all([
           api.getSummary(),
           api.getGauges(),
@@ -53,6 +62,8 @@ export const useDashboardStore = defineStore("dashboard", {
           api.getRain7d(),
           api.getDamWater(),
           api.getTemperatureStations().catch(() => []),
+          api.getNoneProduce({ level: "province", dateDisaster: this.noneProduceDate }).catch(() => ({ data: [] })),
+          api.getRainAverage("p").catch(() => ({ data: [] })),
         ]);
         this.summary = summary;
         this.gauges = gauges;
@@ -73,6 +84,8 @@ export const useDashboardStore = defineStore("dashboard", {
         this.temperatureData = Array.isArray(temperatureData)
           ? temperatureData
           : [];
+        this.noneProduceData = noneProduceResult?.data || [];
+        this.rainAverageData = rainAverageResult?.data || [];
         this.selectedProvince =
           provinces.find((p) => p.risk_level === "critical") ||
           provinces[0] ||
@@ -99,5 +112,25 @@ export const useDashboardStore = defineStore("dashboard", {
     setRainfallPeriod(period) {
       this.rainfallPeriod = period;
     },
+
+    async setNoneProduceDate(date) {
+      this.noneProduceDate = date;
+      try {
+        const result = await api.getNoneProduce({ level: "province", dateDisaster: date });
+        this.noneProduceData = result?.data || [];
+      } catch (e) {
+        console.error("fetchNoneProduce error:", e);
+      }
+    },
+
+    async refreshRainAverage(level = "p") {
+      try {
+        const result = await api.getRainAverage(level);
+        this.rainAverageData = result?.data || [];
+      } catch (e) {
+        console.error("fetchRainAverage error:", e);
+      }
+    },
   },
 });
+

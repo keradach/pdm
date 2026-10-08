@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import provinceBoundaries from '@/assets/th_adm1.json';
 
 // --- Props and Emits ---
 const props = defineProps({
@@ -10,9 +11,12 @@ const props = defineProps({
   rainfallData: Object,
   damWaterData: Array,
   temperatureData: Array,
-  mapView: String, // 'risk', 'weather', or 'dam'
+  rainAverageData: { type: Array, default: () => [] }, // ปริมาณน้ำฝนเฉลี่ย 24 ชม. (riskmap)
+  noneProduceData: { type: Array, default: () => [] },
+  mapView: String, // 'risk', 'weather', 'dam', or 'rain_avg'
   rainfallPeriod: String, // 'today', 'yesterday', 'last_3_days', 'last_7_days'
 });
+
 
 const emit = defineEmits(['select-province', 'set-map-view', 'setMapView', 'set-rainfall-period', 'setRainfallPeriod']);
 
@@ -20,6 +24,7 @@ const emit = defineEmits(['select-province', 'set-map-view', 'setMapView', 'set-
 const mapContainer = ref(null);
 let map = null;
 let markersLayer = new L.LayerGroup();
+let provincePolygonsLayer = null;
 // Per-view caches (keyed by 'lat,lng') so Leaflet markers get reused across
 // renders instead of being destroyed & recreated on every tab/period change.
 const markerCache = {
@@ -27,6 +32,7 @@ const markerCache = {
   dam: new Map(),
   temperature: new Map(),
 };
+
 
 const riskLevelColors = {
   critical: '#dc3545',
@@ -106,6 +112,10 @@ onMounted(() => {
   map.fitBounds(thailandBounds);
 
   markersLayer.addTo(map);
+  provincePolygonsLayer = L.geoJSON(undefined, {
+    style: getProvincePolygonStyle,
+    onEachFeature: bindProvinceTooltip,
+  }).addTo(map);
 
   updateMap();
 });
@@ -118,7 +128,9 @@ onBeforeUnmount(() => {
   markerCache.rain.clear();
   markerCache.dam.clear();
   markerCache.temperature.clear();
+  provincePolygonsLayer = null;
 });
+
 
 // Coalesce rapid successive changes into one render on the next animation
 // frame so the UI thread stays responsive while switching tabs / periods.
@@ -134,6 +146,7 @@ const scheduleUpdate = () => {
 const updateMap = () => {
   if (!map) return;
   markersLayer.clearLayers();
+  provincePolygonsLayer?.clearLayers();
 
   if (props.mapView === 'temperature') {
     renderReusableMarkers('temperature', buildTemperatureItems());
@@ -141,8 +154,11 @@ const updateMap = () => {
     renderReusableMarkers('rain', buildRainItems());
   } else if (props.mapView === 'dam') {
     renderReusableMarkers('dam', buildDamItems());
+  } else if (props.mapView === 'rain_avg') {
+    provincePolygonsLayer?.addData(provinceBoundaries);
   }
 };
+
 
 // Reuses existing Leaflet circle markers keyed by lat,lng so switching rainfall
 // periods (or refreshing a view) only updates styles/popups instead of tearing
@@ -201,9 +217,17 @@ const renderReusableMarkers = (viewKey, items) => {
 watch(() => props.mapView, scheduleUpdate);
 watch(() => props.rainfallPeriod, scheduleUpdate);
 watch(
-  () => [props.provinces, props.rainfallData, props.damWaterData, props.temperatureData],
+  () => [
+    props.provinces,
+    props.rainfallData,
+    props.damWaterData,
+    props.temperatureData,
+    props.rainAverageData,
+    props.noneProduceData,
+  ],
   scheduleUpdate
 );
+
 
 watch(() => props.selectedProvince, (_newVal) => {
   // No-op: Keep the map zoomed out to the whole country.
@@ -351,7 +375,94 @@ const buildRainItems = () => {
   });
   return items;
 };
+
+// ---- rain_avg (riskmap.doae.go.th) ----
+const rainAvgLevels = [
+  { min: 35, color: '#dc3545' },
+  { min: 20, color: '#fd7e14' },
+  { min: 10, color: '#ffc107' },
+  { min: 0.1, color: '#198754' },
+  { min: 0, color: '#0dcaf0' },
+];
+
+const rainAveragePeriods = [
+  { key: 'avg_rain_24h', label: '24 ชั่วโมง' },
+  { key: 'avg_yesterday', label: 'เมื่อวาน' },
+  { key: 'avg_3d', label: 'สะสม 3 วัน' },
+  { key: 'avg_7d', label: 'สะสม 7 วัน' },
+];
+const selectedRainAveragePeriod = ref('avg_rain_24h');
+watch(selectedRainAveragePeriod, scheduleUpdate);
+
+const selectedRainAveragePeriodInfo = () =>
+  rainAveragePeriods.find((period) => period.key === selectedRainAveragePeriod.value) || rainAveragePeriods[0];
+
+const getRainAvgColor = (val) => {
+  for (const l of rainAvgLevels) {
+    if (val >= l.min) return l.color;
+  }
+  return '#0dcaf0';
+};
+
+const normalizeAdminCode = (code) => String(code ?? '').replace(/^TH/i, '').padStart(2, '0');
+
+const rainAverageByCode = () => new Map(
+  props.rainAverageData.map((record) => [normalizeAdminCode(record.admin_code), record])
+);
+
+const noneProduceByCode = () => new Map(
+  props.noneProduceData.map((record) => [normalizeAdminCode(record.province_code), record])
+);
+
+const getProvincePolygonStyle = (feature) => {
+  const code = normalizeAdminCode(feature.properties.ADM1_PCODE);
+  const rain = rainAverageByCode().get(code)?.[selectedRainAveragePeriod.value];
+
+  return {
+    color: '#fff',
+    weight: 1,
+    fillColor: rain == null ? '#adb5bd' : getRainAvgColor(Number(rain)),
+    fillOpacity: rain == null ? 0.35 : 0.75,
+  };
+};
+
+const appendTooltipRow = (container, label, value) => {
+  const row = document.createElement('div');
+  const title = document.createElement('strong');
+  title.textContent = `${label}: `;
+  row.append(title, document.createTextNode(value));
+  container.append(row);
+};
+
+const bindProvinceTooltip = (feature, layer) => {
+  const code = normalizeAdminCode(feature.properties.ADM1_PCODE);
+  const rain = rainAverageByCode().get(code);
+  const noneProduce = noneProduceByCode().get(code);
+  const tooltip = document.createElement('div');
+  const name = document.createElement('strong');
+  name.textContent = noneProduce?.province_name || rain?.admin_name || feature.properties.ADM1_TH;
+  tooltip.append(name);
+  const periodInfo = selectedRainAveragePeriodInfo();
+
+  appendTooltipRow(tooltip, 'เกษตรกร', noneProduce
+    ? `${Number(noneProduce.total_farmers || 0).toLocaleString('th-TH')} ราย`
+    : 'ไม่มีข้อมูล');
+  appendTooltipRow(tooltip, 'พื้นที่ยังไม่เก็บเกี่ยว', noneProduce
+    ? `${Number(noneProduce.total_plant || 0).toLocaleString('th-TH')} ไร่`
+    : 'ไม่มีข้อมูล');
+  appendTooltipRow(tooltip, `ฝนเฉลี่ยสะสม (${periodInfo.label})`, rain
+    ? `${Number(rain[periodInfo.key] || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })} มม.`
+    : 'ไม่มีข้อมูล');
+  appendTooltipRow(tooltip, 'จำนวนสถานี', rain ? `${rain.station_count ?? '-'} สถานี` : 'ไม่มีข้อมูล');
+
+  layer.bindTooltip(tooltip, { sticky: true, direction: 'auto', className: 'province-data-tooltip' });
+  layer.on({
+    mouseover: (event) => event.target.setStyle({ weight: 2, fillOpacity: 0.95 }),
+    mouseout: (event) => provincePolygonsLayer?.resetStyle(event.target),
+  });
+};
 </script>
+
 
 <template>
   <div class="card overflow-hidden min-w-0">
@@ -366,6 +477,9 @@ const buildRainItems = () => {
         <button
           :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
           @click="$emit('setMapView', 'rain')">ปริมาณน้ำฝนจากthaiwater</button>
+        <button
+          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain_avg' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
+          @click="$emit('setMapView', 'rain_avg')">ฝนเฉลี่ย 24 ชม. (riskmap)</button>
         <button
           :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'dam' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
           @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
@@ -399,6 +513,43 @@ const buildRainItems = () => {
               {{ period.label }}
             </button>
           </div>
+        </div>
+      </div>
+      <div v-if="mapView === 'rain_avg'"
+        class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
+        <div class="bg-white/90 p-[10px] rounded-[5px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[200px] max-[640px]:w-full">
+          <h6 class="text-[0.9rem] font-bold border-b border-[#eee] pb-[5px] mb-2 m-0">
+            ฝนเฉลี่ยสะสม: {{ selectedRainAveragePeriodInfo().label }}
+          </h6>
+          <div class="grid grid-cols-2 gap-1 mb-2">
+            <button
+              v-for="period in rainAveragePeriods"
+              :key="period.key"
+              type="button"
+              class="rounded border border-[#dee2e6] px-2 py-1 text-[11px] text-[#495057]"
+              :class="selectedRainAveragePeriod === period.key ? 'bg-pdm-green-deep text-white font-semibold' : 'bg-[#f8f9fa]'"
+              :aria-pressed="selectedRainAveragePeriod === period.key"
+              @click="selectedRainAveragePeriod = period.key"
+            >
+              {{ period.label }}
+            </button>
+          </div>
+          <ul class="list-none p-0 m-0 text-[0.8rem]">
+            <li class="flex items-center mb-1" v-for="level in rainAvgLevels" :key="level.min">
+              <span class="w-[18px] h-[18px] mr-2 border border-[#ccc]"
+                :style="{ backgroundColor: level.color }"></span>
+              <span v-if="level.min >= 35">≥ 35 มม.</span>
+              <span v-else-if="level.min >= 20">20-35 มม.</span>
+              <span v-else-if="level.min >= 10">10-20 มม.</span>
+              <span v-else-if="level.min >= 0.1">0.1-10 มม.</span>
+              <span v-else>0 มม.</span>
+            </li>
+          </ul>
+          <p class="mt-2 text-[0.75rem] text-muted leading-tight">
+            สีพื้นที่ = ปริมาณฝนเฉลี่ยสะสม (มม.)<br>
+            แหล่งข้อมูล: riskmap.doae.go.th<br>
+            ขอบเขต: <a href="https://github.com/piyayut-ch/mapthai" target="_blank" rel="noreferrer" class="hover:underline">mapthai / UNOCHA</a>
+          </p>
         </div>
       </div>
       <div v-if="mapView === 'dam'"

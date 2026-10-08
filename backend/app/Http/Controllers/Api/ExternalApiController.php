@@ -92,4 +92,25 @@ class ExternalApiController extends Controller
 
         return response()->json($this->external->reverseGeocode($lat, $lng));
     }
+
+    // efarmer.doae.go.th — พื้นที่ยังไม่เก็บเกี่ยว
+    public function noneProduce(Request $request): JsonResponse
+    {
+        $level        = $request->input('level', 'province');
+        $areaCode     = $request->input('areaCode', null);
+        $dateDisaster = $request->input('dateDisaster');
+        $force        = $request->boolean('force', false);
+
+        return response()->json($this->external->noneProduce($level, $areaCode, $dateDisaster, $force));
+    }
+
+    // riskmap.doae.go.th — ปริมาณน้ำฝนเฉลี่ย 24 ชม.
+    public function rainAverage(Request $request): JsonResponse
+    {
+        $level     = $request->query('level', 'p');
+        $adminCode = $request->query('admin_code');
+        $force     = $request->boolean('force', false);
+
+        return response()->json($this->external->rainAverage($level, $adminCode, $force));
+    }
 }

@@ -9,11 +9,11 @@ import StatCards from '@/components/StatCards.vue'
 import SidebarNav from '@/components/SidebarNav.vue'
 import RiskMapCard from '@/components/RiskMapCard.vue'
 import DisasterGauges from '@/components/DisasterGauges.vue'
-import TrendLineChart from '@/components/TrendLineChart.vue'
 import DisasterPieChart from '@/components/DisasterPieChart.vue'
 import DisasterTypeCard from '@/components/DisasterTypeCard.vue'
 import PartnerLogos from '@/components/PartnerLogos.vue'
 import WeatherCard from '@/components/WeatherCard.vue'
+import NoneProduceCard from '@/components/NoneProduceCard.vue'
 
 const store = useDashboardStore()
 const {
@@ -21,7 +21,6 @@ const {
   gauges,
   provinces,
   topDamaged,
-  trend,
   breakdown,
   alerts,
   selectedProvince,
@@ -30,6 +29,9 @@ const {
   rainfallData,
   damWaterData,
   temperatureData,
+  rainAverageData,
+  noneProduceData,
+  noneProduceDate,
   mapView,
   rainfallPeriod,
 } = storeToRefs(store)
@@ -51,17 +53,18 @@ onMounted(() => store.fetchAll())
       <div class="flex flex-col gap-3 min-w-0">
         <RiskMapCard class="flex-1 w-full min-w-0" :provinces="provinces" :selected-province="selectedProvince"
           :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
-          :dam-water-data="damWaterData" :temperature-data="temperatureData"
-          @select-province="store.selectProvince($event)" @set-map-view="store.setMapView($event)"
-          @set-rainfall-period="store.setRainfallPeriod($event)" />
+          :dam-water-data="damWaterData" :temperature-data="temperatureData" :rain-average-data="rainAverageData"
+          :none-produce-data="noneProduceData" @select-province="store.selectProvince($event)"
+          @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
 
         <!-- WeatherCard displayed under RiskMapCard when responsive (<= 900px) -->
         <WeatherCard class="hidden max-[900px]:block" />
       </div>
       <div
         class="flex flex-col gap-3 min-w-0 max-[900px]:grid max-[900px]:grid-cols-2 max-[640px]:flex max-[640px]:flex-col">
-        <TrendLineChart class="w-full min-w-0" :trend="trend" />
-        <DisasterPieChart class="w-full min-w-0" :breakdown="breakdown" />
+        <NoneProduceCard class="w-full min-w-0" :data="noneProduceData" :date="noneProduceDate"
+          :rain-average-data="rainAverageData" @update:date="store.setNoneProduceDate($event)" />
+        <!-- <DisasterPieChart class="w-full min-w-0" :breakdown="breakdown" /> -->
       </div>
     </div>
     <div class="min-w-0">

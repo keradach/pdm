@@ -288,6 +288,67 @@ class ExternalApiService
             ->all();
     }
 
+    // ------------------------------------------------------------------
+    // efarmer.doae.go.th — พื้นที่ยังไม่เก็บเกี่ยว (noneProduce)
+    // ------------------------------------------------------------------
+
+    /**
+     * ดึงข้อมูลพื้นที่การเกษตรที่เกษตรกรยังไม่เก็บเกี่ยว
+     *
+     * @param string $level   'province' หรือ 'amphur'
+     * @param string|null $areaCode รหัสจังหวัด 2 หลัก / รหัสอำเภอ 4 หลัก
+     * @param string|null $dateDisaster วันที่เกิดภัย (YYYY-MM-DD)
+     */
+    public function noneProduce(string $level = 'province', ?string $areaCode = null, ?string $dateDisaster = null, bool $force = false): mixed
+    {
+        $dateDisaster = $dateDisaster ?: now()->format('Y-m-d');
+        $cacheKey = "efarmer:none-produce:{$level}:{$dateDisaster}" . ($areaCode ? ":{$areaCode}" : '');
+
+        return $this->fetch($cacheKey, function () use ($level, $areaCode, $dateDisaster) {
+            $formData = ['level' => $level, 'dateDisaster' => $dateDisaster];
+            if ($areaCode) {
+                $formData['areaCode'] = $areaCode;
+            }
+
+            $response = Http::timeout(60)
+                ->connectTimeout(15)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Accept'     => 'application/json, text/plain, */*',
+                ])
+                ->withoutVerifying()
+                ->asForm()
+                ->post('https://efarmer.doae.go.th/api/farmer/noneProduce', $formData);
+
+            if (!$response->successful()) {
+                throw new \Exception("efarmer:noneProduce returned HTTP {$response->status()}");
+            }
+
+            return $response->json();
+        }, 1800, $force); // แคช 30 นาที
+    }
+
+    // ------------------------------------------------------------------
+    // riskmap.doae.go.th — ปริมาณน้ำฝนเฉลี่ย 24 ชม.
+    // ------------------------------------------------------------------
+
+    /**
+     * ดึงข้อมูลปริมาณน้ำฝนเฉลี่ย 24 ชม. จาก riskmap
+     *
+     * @param string $level     'p' (province) หรือ 'a' (amphur)
+     * @param string|null $adminCode รหัสจังหวัด/อำเภอ (optional)
+     */
+    public function rainAverage(string $level = 'p', ?string $adminCode = null, bool $force = false): mixed
+    {
+        $cacheKey = "riskmap:rain-average:{$level}" . ($adminCode ? ":{$adminCode}" : '');
+        $url = "https://riskmap.doae.go.th/api_get_rain_average?level={$level}";
+        if ($adminCode) {
+            $url .= "&admin_code={$adminCode}";
+        }
+
+        return $this->fetch($cacheKey, fn() => $this->httpGet($url, 30), 600, $force); // แคช 10 นาที
+    }
+
     /**
      * @return array<string,string> endpoint → short label for logging
      */
@@ -306,3 +367,4 @@ class ExternalApiService
         ];
     }
 }
+

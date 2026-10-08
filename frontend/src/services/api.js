@@ -53,4 +53,22 @@ export default {
     api
       .get(`/external/weather/reverse-geocode?lat=${latitude}&lng=${longitude}`)
       .then((r) => r.data),
+
+  // ---- efarmer.doae.go.th — พื้นที่ยังไม่เก็บเกี่ยว ----
+  // level: 'province' | 'amphur'
+  // areaCode: รหัสจังหวัด 2 หลัก หรือ รหัสอำเภอ 4 หลัก (optional)
+  // dateDisaster: 'YYYY-MM-DD'
+  getNoneProduce: (params = {}) =>
+    api.post("/external/none-produce", params).then((r) => r.data),
+
+  // ---- riskmap.doae.go.th — ปริมาณน้ำฝนเฉลี่ย 24 ชม. ----
+  // level: 'p' (province) | 'a' (amphur)
+  // admin_code: optional
+  getRainAverage: (level = "p", adminCode = null) => {
+    const params = new URLSearchParams({ level });
+    if (adminCode) params.set("admin_code", adminCode);
+    return api
+      .get(`/external/rain-average?${params.toString()}`)
+      .then((r) => r.data);
+  },
 };
