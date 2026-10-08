@@ -67,9 +67,9 @@ onMounted(() => store.fetchAll())
         <!-- <DisasterPieChart class="w-full min-w-0" :breakdown="breakdown" /> -->
       </div>
     </div>
-    <div class="min-w-0">
+    <!-- <div class="min-w-0">
       <DisasterTypeCard class="w-full" :provinces="topDamaged" />
-    </div>
+    </div> -->
   </section>
 
   <PartnerLogos />
