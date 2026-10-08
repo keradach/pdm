@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import WeatherCard from '@/components/WeatherCard.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -25,16 +26,23 @@ const active = computed(() => route.path)
 </script>
 
 <template>
-  <nav class="flex flex-col gap-[10px] max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:pb-0.5">
-    <button v-for="(item, index) in items" :key="item.route" :class="[
-      'grow-0 shrink-0 h-[60px] flex items-center gap-[10px] border border-edge rounded-[10px] p-3 cursor-pointer text-left hover:shadow-card',
-      active === item.route ? 'border-pdm-green bg-[#f2f9f4] font-semibold' : 'bg-white',
-    ]" @click="router.push(item.route)">
-      <span class="icon text-lg">{{ emoji[item.icon] }}</span>
-      <span class="flex flex-col leading-[1] min-w-0">
-        <strong class="text-[13px]">{{ item.title }}</strong>
-        <small class="text-[11px] text-muted">{{ item.subtitle }}</small>
-      </span>
-    </button>
-  </nav>
+  <div class="flex flex-col gap-3">
+    <nav class="flex flex-col gap-[10px] max-[900px]:flex-row max-[900px]:overflow-x-auto max-[900px]:pb-0.5">
+      <button v-for="(item, index) in items" :key="item.route" :class="[
+        'grow-0 shrink-0 h-[60px] flex items-center gap-[10px] border border-edge rounded-[10px] p-3 cursor-pointer text-left hover:shadow-card',
+        active === item.route ? 'border-pdm-green bg-[#f2f9f4] font-semibold' : 'bg-white',
+      ]" @click="router.push(item.route)">
+        <span class="icon text-lg">{{ emoji[item.icon] }}</span>
+        <span class="flex flex-col leading-[1] min-w-0">
+          <strong class="text-[13px]">{{ item.title }}</strong>
+          <small class="text-[11px] text-muted">{{ item.subtitle }}</small>
+        </span>
+      </button>
+    </nav>
+
+    <!-- WeatherCard under sidebar menu (visible on desktop >900px, hidden on responsive <=900px) -->
+    <div class="hidden min-[901px]:block">
+      <WeatherCard compact />
+    </div>
+  </div>
 </template>

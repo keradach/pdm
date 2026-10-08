@@ -46,22 +46,17 @@ onMounted(() => store.fetchAll())
   <div v-if="loading" class="loading-banner bg-[#eef4ff] text-pdm-blue rounded-[10px] p-[10px_16px] text-[13px]">
     กำลังโหลดข้อมูล...</div>
 
-  <div class="top-row">
-    <!-- <StatCards :summary="summary" /> -->
-    <div class="weather-slot">
-      <WeatherCard />
-    </div>
-  </div>
-  <!-- <StatCards :summary="summary" /> -->
-
   <section class="flex flex-col gap-4">
     <div class="grid grid-cols-[4fr_2fr] gap-3 items-stretch max-[900px]:grid-cols-1">
-      <div class="flex min-w-0">
+      <div class="flex flex-col gap-3 min-w-0">
         <RiskMapCard class="flex-1 w-full min-w-0" :provinces="provinces" :selected-province="selectedProvince"
           :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
           :dam-water-data="damWaterData" :temperature-data="temperatureData"
           @select-province="store.selectProvince($event)" @set-map-view="store.setMapView($event)"
           @set-rainfall-period="store.setRainfallPeriod($event)" />
+
+        <!-- WeatherCard displayed under RiskMapCard when responsive (<= 900px) -->
+        <WeatherCard class="hidden max-[900px]:block" />
       </div>
       <div
         class="flex flex-col gap-3 min-w-0 max-[900px]:grid max-[900px]:grid-cols-2 max-[640px]:flex max-[640px]:flex-col">

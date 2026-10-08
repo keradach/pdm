@@ -2,11 +2,20 @@
 import { onMounted, ref } from "vue";
 import api from "@/services/api";
 
+const props = defineProps({
+  compact: {
+    type: Boolean,
+    default: false,
+  },
+});
+
+// Module-level cache so desktop sidebar and mobile instances share the same state without redundant network calls
 const forecast = ref([]);
 const locationName = ref("");
 const loading = ref(true);
 const errorMessage = ref("");
 const updatedAt = ref("");
+let fetchPromise = null;
 
 // ฟังก์ชันแปลง Weather Code ของ Open-Meteo ให้เป็นข้อความภาษาไทย
 function getWeatherDescription(code) {
@@ -40,10 +49,7 @@ function getDevicePosition() {
   });
 }
 
-async function loadWeather() {
-  loading.value = true;
-  errorMessage.value = "";
-
+async function fetchWeatherData() {
   try {
     const { latitude, longitude } = await getDevicePosition();
     const [weatherResult, locationResult] = await Promise.allSettled([
@@ -91,7 +97,31 @@ async function loadWeather() {
     locationName.value = "";
   } finally {
     loading.value = false;
+    fetchPromise = null;
   }
+}
+
+function loadWeather(force = false) {
+  if (force) {
+    loading.value = true;
+    errorMessage.value = "";
+    fetchPromise = fetchWeatherData();
+    return fetchPromise;
+  }
+
+  if (forecast.value.length > 0) {
+    loading.value = false;
+    return;
+  }
+
+  if (fetchPromise) {
+    return fetchPromise;
+  }
+
+  loading.value = true;
+  errorMessage.value = "";
+  fetchPromise = fetchWeatherData();
+  return fetchPromise;
 }
 
 function formatDate(date) {
@@ -103,27 +133,57 @@ function formatDate(date) {
   }).format(new Date(`${date}T00:00:00+07:00`));
 }
 
-onMounted(loadWeather);
+onMounted(() => loadWeather(false));
 </script>
 
 <template>
-  <section class="card min-w-0 p-2" aria-labelledby="weather-heading">
-    <div class="flex flex-wrap items-start justify-between gap-2 px-2">
+  <section class="card min-w-0 p-2.5" aria-labelledby="weather-heading">
+    <div class="flex flex-wrap items-start justify-between gap-2 px-1">
       <div>
-        <h2 id="weather-heading" class="text-[15px] font-semibold text-ink">พยากรณ์อากาศ 7 วัน</h2>
+        <h2 id="weather-heading" class="text-[14px] font-semibold text-ink flex items-center gap-1.5">
+          <span>⛅</span>
+          <span>พยากรณ์อากาศ 7 วัน</span>
+        </h2>
       </div>
-      <span class="text-[12px] text-muted">{{ locationName || (loading ? "กำลังระบุตำแหน่ง..." : "") }}</span>
+      <span class="text-[11px] text-muted">{{ locationName || (loading ? "กำลังระบุตำแหน่ง..." : "") }}</span>
     </div>
 
-    <p v-if="loading" class="py-4 text-center text-sm text-muted" role="status">กำลังโหลดพยากรณ์อากาศ...</p>
-    <div v-else-if="errorMessage" class="flex flex-wrap items-center justify-between gap-3 py-4">
-      <p class="text-sm text-pdm-red" role="alert">{{ errorMessage }}</p>
-      <button class="rounded border border-edge px-3 py-1.5 text-sm text-ink hover:bg-page" @click="loadWeather">
+    <p v-if="loading" class="py-4 text-center text-xs text-muted" role="status">กำลังโหลดพยากรณ์อากาศ...</p>
+    <div v-else-if="errorMessage" class="flex flex-col items-center justify-center gap-2 py-3 px-1 text-center">
+      <p class="text-xs text-pdm-red" role="alert">{{ errorMessage }}</p>
+      <button class="rounded border border-edge px-2.5 py-1 text-xs text-ink hover:bg-page cursor-pointer"
+        @click="loadWeather(true)">
         ลองอีกครั้ง
       </button>
     </div>
 
-    <div v-else class="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 sm:px-1 xl:px-10">
+    <!-- Compact vertical layout for sidebar -->
+    <div v-else-if="compact" class="mt-2.5 flex flex-col gap-1.5">
+      <article v-for="day in forecast" :key="day.date"
+        class="flex flex-col gap-1 rounded-lg border border-edge bg-page/60 px-2 py-2 text-xs hover:bg-page transition-colors">
+        <!-- แถวบน: วันที่ + สภาพอากาศเต็มข้อความ -->
+        <div class="flex items-start gap-1.5">
+          <span class="rounded bg-pdm-green-deep px-1.5 py-0.5 text-[10px] font-semibold text-white shrink-0 leading-4 mt-0.5">
+            {{ formatDate(day.date) }}
+          </span>
+          <span class="text-[11px] font-medium text-ink leading-[1.35] break-words min-w-0">
+            {{ day.weather }}
+          </span>
+        </div>
+        <!-- แถวล่าง: โอกาสฝน + อุณหภูมิ -->
+        <div class="flex items-center justify-between gap-1 pl-1">
+          <span class="text-[10px] font-semibold text-pdm-blue whitespace-nowrap">
+            💧{{ day.rainChance ?? 0 }}%
+          </span>
+          <span class="text-[11px] font-bold text-ink whitespace-nowrap">
+            {{ Math.round(day.maxTemp) }}°<span class="text-muted font-normal">/{{ Math.round(day.minTemp) }}°</span>
+          </span>
+        </div>
+      </article>
+    </div>
+
+    <!-- Full grid layout (under RiskMapCard or wide view) -->
+    <div v-else class="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7 sm:px-1">
       <article v-for="day in forecast" :key="day.date"
         class="flex min-w-0 flex-col gap-2 rounded-md border border-edge bg-white p-2 shadow-sm">
         <h3 class="rounded-sm bg-pdm-green-deep px-1.5 py-1.5 text-center text-[12px] text-white">
@@ -135,7 +195,6 @@ onMounted(loadWeather);
             <span class="px-1 text-[10px] font-semibold leading-4">โอกาสฝน</span>
             <span class="px-1 text-base font-extrabold">{{ day.rainChance ?? "-" }}%</span>
           </p>
-
         </div>
         <p class="text-center text-sm font-bold text-ink">
           {{ Math.round(day.maxTemp) }}°C
@@ -145,9 +204,9 @@ onMounted(loadWeather);
     </div>
 
     <div v-if="!loading"
-      class="mt-2 flex flex-wrap justify-between gap-2 border-t border-edge pt-2 px-2 text-[11px] text-muted">
+      class="mt-2 flex flex-wrap justify-between gap-2 border-t border-edge pt-2 px-1 text-[10px] text-muted">
       <p v-if="updatedAt">อัปเดต {{ updatedAt }} น.</p>
-      <a href="https://Open-Meteo.com" target="_blank" rel="noreferrer" class="hover:underline">
+      <a href="https://open-meteo.com" target="_blank" rel="noreferrer" class="hover:underline">
         © Open-Meteo
       </a>
     </div>
