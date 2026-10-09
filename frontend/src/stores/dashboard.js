@@ -10,7 +10,7 @@ export const useDashboardStore = defineStore("dashboard", {
     provinces: [],
     topDamaged: [],
     trend: [],
-    breakdown: [],
+    // breakdown: [],
     alerts: [],
     selectedProvince: null,
     rainfallData: null,
@@ -53,7 +53,7 @@ export const useDashboardStore = defineStore("dashboard", {
           provinces,
           topDamaged,
           trend,
-          breakdown,
+          // breakdown,
           alerts,
           damWaterData,
           temperatureData,
@@ -64,7 +64,7 @@ export const useDashboardStore = defineStore("dashboard", {
           api.getProvinces(),
           api.getTopDamaged(10),
           api.getTrend(),
-          api.getBreakdown(),
+          // api.getBreakdown(),
           api.getAlerts(),
           // Rainfall API calls are temporarily disabled; keep these for later:
           // api.getRainToday(),
@@ -80,7 +80,7 @@ export const useDashboardStore = defineStore("dashboard", {
         this.provinces = provinces;
         this.topDamaged = topDamaged;
         this.trend = trend;
-        this.breakdown = breakdown;
+        // this.breakdown = breakdown;
         this.alerts = alerts;
         // Temporarily disabled along with rainfall API requests:
         // this.rainfallData = {
@@ -143,9 +143,9 @@ export const useDashboardStore = defineStore("dashboard", {
           ? result.data
           : Array.isArray(result?.data?.data)
             ? result.data.data
-          : Array.isArray(result)
-            ? result
-            : [];
+            : Array.isArray(result)
+              ? result
+              : [];
         this.noneProduceSumAll =
           result?.sumAll ?? result?.data?.sumAll ?? result?.totals ?? null;
       } catch (e) {
@@ -187,7 +187,10 @@ export const useDashboardStore = defineStore("dashboard", {
 
     async goBackNoneProduceArea() {
       if (this.noneProduceSelectionPath.length === 0) return;
-      this.noneProduceSelectionPath = this.noneProduceSelectionPath.slice(0, -1);
+      this.noneProduceSelectionPath = this.noneProduceSelectionPath.slice(
+        0,
+        -1,
+      );
       this.syncNoneProduceSelection();
       await this.fetchNoneProduce();
     },
