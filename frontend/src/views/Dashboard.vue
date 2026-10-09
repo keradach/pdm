@@ -3,30 +3,29 @@ import { onMounted } from 'vue'
 import { useDashboardStore } from '@/stores/dashboard'
 import { storeToRefs } from 'pinia'
 
-import HeaderBar from '@/components/HeaderBar.vue'
-import AlertBanner from '@/components/AlertBanner.vue'
-import StatCards from '@/components/StatCards.vue'
-import SidebarNav from '@/components/SidebarNav.vue'
+// import HeaderBar from '@/components/HeaderBar.vue'
+// import AlertBanner from '@/components/AlertBanner.vue'
+// import StatCards from '@/components/StatCards.vue'
+// import SidebarNav from '@/components/SidebarNav.vue'
 import RiskMapCard from '@/components/RiskMapCard.vue'
-import DisasterGauges from '@/components/DisasterGauges.vue'
-import DisasterPieChart from '@/components/DisasterPieChart.vue'
-import DisasterTypeCard from '@/components/DisasterTypeCard.vue'
+// import DisasterGauges from '@/components/DisasterGauges.vue'
+// import DisasterPieChart from '@/components/DisasterPieChart.vue'
+// import DisasterTypeCard from '@/components/DisasterTypeCard.vue'
 import PartnerLogos from '@/components/PartnerLogos.vue'
 import WeatherCard from '@/components/WeatherCard.vue'
 import NoneProduceCard from '@/components/NoneProduceCard.vue'
 
 const store = useDashboardStore()
 const {
-  summary,
-  gauges,
+  // summary,
+  // gauges,
   provinces,
-  topDamaged,
-  breakdown,
-  alerts,
+  // topDamaged,
+  // breakdown,
+  // alerts,
   selectedProvince,
   loading,
   error,
-  rainfallData,
   damWaterData,
   temperatureData,
   rainAverageData,
@@ -52,7 +51,7 @@ onMounted(() => store.fetchAll())
     <div class="grid grid-cols-[4fr_2fr] gap-3 items-stretch max-[900px]:grid-cols-1">
       <div class="flex flex-col gap-3 min-w-0">
         <RiskMapCard class="flex-1 w-full min-w-0" :provinces="provinces" :selected-province="selectedProvince"
-          :rainfall-data="rainfallData" :map-view="mapView" :rainfall-period="rainfallPeriod"
+          :map-view="mapView" :rainfall-period="rainfallPeriod"
           :dam-water-data="damWaterData" :temperature-data="temperatureData" :rain-average-data="rainAverageData"
           :none-produce-data="noneProduceData" @select-province="store.selectProvince($event)"
           @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />

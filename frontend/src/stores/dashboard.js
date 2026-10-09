@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import api from "@/services/api";
+import api, { API_ENABLED, API_DISABLED_MESSAGE } from "@/services/api";
 
 export const useDashboardStore = defineStore("dashboard", {
   state: () => ({
@@ -16,7 +16,7 @@ export const useDashboardStore = defineStore("dashboard", {
     rainfallData: null,
     damWaterData: [],
     temperatureData: [],
-    mapView: "rain", // 'risk' or 'rain' or 'dam' or 'rain_avg'
+    mapView: "rain_avg", // 'risk' or 'rain' or 'dam' or 'rain_avg'
     rainfallPeriod: "today", // 'today', 'yesterday', 'last_3_days', 'last_7_days'
 
     // --- ใหม่: พื้นที่ยังไม่เก็บเกี่ยว (efarmer.doae.go.th) ---
@@ -29,6 +29,11 @@ export const useDashboardStore = defineStore("dashboard", {
 
   actions: {
     async fetchAll() {
+      if (!API_ENABLED) {
+        this.error = API_DISABLED_MESSAGE;
+        return;
+      }
+
       this.loading = true;
       this.error = null;
       try {
@@ -40,10 +45,6 @@ export const useDashboardStore = defineStore("dashboard", {
           trend,
           breakdown,
           alerts,
-          rainToday,
-          rainYesterday,
-          rain3d,
-          rain7d,
           damWaterData,
           temperatureData,
           noneProduceResult,
@@ -56,13 +57,19 @@ export const useDashboardStore = defineStore("dashboard", {
           api.getTrend(),
           api.getBreakdown(),
           api.getAlerts(),
-          api.getRainToday(),
-          api.getRainYesterday(),
-          api.getRain3d(),
-          api.getRain7d(),
+          // Rainfall API calls are temporarily disabled; keep these for later:
+          // api.getRainToday(),
+          // api.getRainYesterday(),
+          // api.getRain3d(),
+          // api.getRain7d(),
           api.getDamWater(),
           api.getTemperatureStations().catch(() => []),
-          api.getNoneProduce({ level: "province", dateDisaster: this.noneProduceDate }).catch(() => ({ data: [] })),
+          api
+            .getNoneProduce({
+              level: "province",
+              dateDisaster: this.noneProduceDate,
+            })
+            .catch(() => ({ data: [] })),
           api.getRainAverage("p").catch(() => ({ data: [] })),
         ]);
         this.summary = summary;
@@ -72,14 +79,15 @@ export const useDashboardStore = defineStore("dashboard", {
         this.trend = trend;
         this.breakdown = breakdown;
         this.alerts = alerts;
-        this.rainfallData = {
-          data: {
-            today: rainToday.data,
-            yesterday: rainYesterday.data,
-            "3d": rain3d.data,
-            "7d": rain7d.data,
-          },
-        };
+        // Temporarily disabled along with rainfall API requests:
+        // this.rainfallData = {
+        //   data: {
+        //     today: rainToday.data,
+        //     yesterday: rainYesterday.data,
+        //     "3d": rain3d.data,
+        //     "7d": rain7d.data,
+        //   },
+        // };
         this.damWaterData = damWaterData;
         this.temperatureData = Array.isArray(temperatureData)
           ? temperatureData
@@ -116,7 +124,10 @@ export const useDashboardStore = defineStore("dashboard", {
     async setNoneProduceDate(date) {
       this.noneProduceDate = date;
       try {
-        const result = await api.getNoneProduce({ level: "province", dateDisaster: date });
+        const result = await api.getNoneProduce({
+          level: "province",
+          dateDisaster: date,
+        });
         this.noneProduceData = result?.data || [];
       } catch (e) {
         console.error("fetchNoneProduce error:", e);
@@ -133,4 +144,3 @@ export const useDashboardStore = defineStore("dashboard", {
     },
   },
 });
-

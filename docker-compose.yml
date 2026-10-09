@@ -97,6 +97,7 @@ services:
       - APP_ENV=local
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_BASE_URL=${VITE_API_BASE_URL:-/api}
+      - VITE_API_ENABLED=${VITE_API_ENABLED:-true}
       - VITE_BACKEND_PROXY_URL=http://backend-nginx:80
     networks:
       - pdm-net

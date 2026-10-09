@@ -64,6 +64,7 @@ services:
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
+        VITE_API_ENABLED: ${VITE_API_ENABLED:-true}
     image: pdm-frontend:latest
     container_name: pdm-frontend
     restart: unless-stopped

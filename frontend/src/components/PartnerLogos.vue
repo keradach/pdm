@@ -28,7 +28,7 @@ const features = [
       <div class="text-[13px] font-bold text-white mb-2">DOAE Contact Center</div>
       <div class="contact-list flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-0.5 min-w-0">
         <div class="contact-row inline-flex items-center text-[13px] min-w-0 break-words whitespace-nowrap shrink-0">📞 0 2579 3926</div>
-        <div class="contact-row inline-flex items-center text-[13px] min-w-0 break-words whitespace-nowrap shrink-0">✉ pdmrc@doae.go.th</div>
+        <div class="contact-row inline-flex items-center text-[13px] min-w-0 break-words whitespace-nowrap shrink-0">✉ pdmc@doae.go.th</div>
       </div>
     </div>
   </div>

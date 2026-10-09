@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import api from '@/services/api'
+import api, { API_ENABLED, API_DISABLED_MESSAGE } from '@/services/api'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -23,7 +23,9 @@ export const useAuthStore = defineStore('auth', {
         this.setAuth(data)
         return data
       } catch (e) {
-        this.error = e.response?.data?.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก'
+        this.error = !API_ENABLED
+          ? API_DISABLED_MESSAGE
+          : e.response?.data?.message || 'เกิดข้อผิดพลาดในการสมัครสมาชิก'
         throw e
       } finally {
         this.loading = false
@@ -38,7 +40,9 @@ export const useAuthStore = defineStore('auth', {
         this.setAuth(data)
         return data
       } catch (e) {
-        this.error = e.response?.data?.errors?.email?.[0] || e.response?.data?.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
+        this.error = !API_ENABLED
+          ? API_DISABLED_MESSAGE
+          : e.response?.data?.errors?.email?.[0] || e.response?.data?.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง'
         throw e
       } finally {
         this.loading = false
@@ -46,7 +50,7 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async fetchMe() {
-      if (!this.token) return null
+      if (!this.token || !API_ENABLED) return this.user
       try {
         const data = await api.getMe()
         this.user = data.user

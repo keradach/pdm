@@ -8,7 +8,6 @@ import provinceBoundaries from '@/assets/th_adm1.json';
 const props = defineProps({
   provinces: Array,
   selectedProvince: Object,
-  rainfallData: Object,
   damWaterData: Array,
   temperatureData: Array,
   rainAverageData: { type: Array, default: () => [] }, // ปริมาณน้ำฝนเฉลี่ย 24 ชม. (riskmap)
@@ -219,7 +218,6 @@ watch(() => props.rainfallPeriod, scheduleUpdate);
 watch(
   () => [
     props.provinces,
-    props.rainfallData,
     props.damWaterData,
     props.temperatureData,
     props.rainAverageData,
@@ -319,14 +317,8 @@ const buildDamItems = () => {
 // };
 
 const getRainfallDataSet = () => {
-  const d = props.rainfallData?.data;
-  switch (props.rainfallPeriod) {
-    case 'yesterday': return d?.yesterday || [];
-    case 'last_3_days': return d?.['3d'] || [];
-    case 'last_7_days': return d?.['7d'] || [];
-    case 'today':
-    default: return d?.today || [];
-  }
+  // Rainfall data is temporarily disconnected from this component.
+  return [];
 };
 
 const buildRainItems = () => {
@@ -474,9 +466,9 @@ const bindProvinceTooltip = (feature, layer) => {
       <div class="flex flex-wrap p-1 gap-1 max-[640px]:overflow-x-auto max-[640px]:flex-nowrap">
         <!-- <button :class="{ active: mapView === 'risk' }"
           @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button> -->
-        <button
+        <!-- <button
           :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
-          @click="$emit('setMapView', 'rain')">ปริมาณน้ำฝนจากthaiwater</button>
+          @click="$emit('setMapView', 'rain')">ปริมาณน้ำฝนจากthaiwater</button> -->
         <button
           :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain_avg' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
           @click="$emit('setMapView', 'rain_avg')">ฝนเฉลี่ย 24 ชม. (riskmap)</button>
@@ -522,15 +514,10 @@ const bindProvinceTooltip = (feature, layer) => {
             ฝนเฉลี่ยสะสม: {{ selectedRainAveragePeriodInfo().label }}
           </h6>
           <div class="grid grid-cols-2 gap-1 mb-2">
-            <button
-              v-for="period in rainAveragePeriods"
-              :key="period.key"
-              type="button"
+            <button v-for="period in rainAveragePeriods" :key="period.key" type="button"
               class="rounded border border-[#dee2e6] px-2 py-1 text-[11px] text-[#495057]"
               :class="selectedRainAveragePeriod === period.key ? 'bg-pdm-green-deep text-white font-semibold' : 'bg-[#f8f9fa]'"
-              :aria-pressed="selectedRainAveragePeriod === period.key"
-              @click="selectedRainAveragePeriod = period.key"
-            >
+              :aria-pressed="selectedRainAveragePeriod === period.key" @click="selectedRainAveragePeriod = period.key">
               {{ period.label }}
             </button>
           </div>
@@ -548,7 +535,8 @@ const bindProvinceTooltip = (feature, layer) => {
           <p class="mt-2 text-[0.75rem] text-muted leading-tight">
             สีพื้นที่ = ปริมาณฝนเฉลี่ยสะสม (มม.)<br>
             แหล่งข้อมูล: riskmap.doae.go.th<br>
-            ขอบเขต: <a href="https://github.com/piyayut-ch/mapthai" target="_blank" rel="noreferrer" class="hover:underline">mapthai / UNOCHA</a>
+            ขอบเขต: <a href="https://github.com/piyayut-ch/mapthai" target="_blank" rel="noreferrer"
+              class="hover:underline">mapthai / UNOCHA</a>
           </p>
         </div>
       </div>

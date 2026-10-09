@@ -1,5 +1,10 @@
 import axios from "axios";
 
+export const API_ENABLED =
+  import.meta.env.VITE_API_ENABLED?.trim().toLowerCase() !== "false";
+export const API_DISABLED_MESSAGE =
+  "API calls are disabled by VITE_API_ENABLED=false";
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000/api",
   headers: { Accept: "application/json" },
@@ -7,6 +12,10 @@ const api = axios.create({
 
 // Attach Bearer token to every request if present
 api.interceptors.request.use((config) => {
+  if (!API_ENABLED) {
+    throw new Error(API_DISABLED_MESSAGE);
+  }
+
   const token = localStorage.getItem("pdm_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;

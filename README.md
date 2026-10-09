@@ -220,6 +220,7 @@ cp backend/.env.production backend/.env.production.local
 | ------ | -------- |
 | `COMPOSE_PROFILES` | ต้องเป็น `production` (ตั้งไว้แล้วใน `.env.production`) |
 | `VITE_API_BASE_URL` | URL ของ backend API ที่ frontend จะเรียก (เช่น `https://api.example.com/api`) |
+| `VITE_API_ENABLED` | เปิด/ปิดการเรียก API ทั้งหมดของ frontend (`true` เปิด, `false` ปิด; ค่าเริ่มต้น `true`) |
 | `ORACLE_ARCH` | `arm64` หรือ `amd64` ตาม CPU ของ production server |
 
 ### 2. Build และรัน (production) — คำสั่งเดียวกันกับ local
@@ -237,7 +238,7 @@ docker compose up -d --build
 > - `docker-compose.yml` ในโหมด production **ไม่ bind-mount** source code —
 >   โค้ดถูก `COPY` เข้า image ตอน build ดังนั้นการแก้ไขโค้ดต้อง **rebuild image ใหม่**
 > - Frontend ถูก build เป็น static assets แล้ว serve ด้วย nginx (ไม่ใช่ Vite dev server)
-> - `VITE_API_BASE_URL` ถูกฝัง (bake) เข้า image ตอน build — ถ้าเปลี่ยนต้อง rebuild
+> - `VITE_API_BASE_URL` และ `VITE_API_ENABLED` ถูกฝัง (bake) เข้า image ตอน build — ถ้าเปลี่ยนต้อง rebuild
 > - ข้อมูล Oracle ถูกเก็บใน named volume `oracle-data` (ไม่หายเมื่อ container ถูกลบ)
 
 ---
