@@ -134,7 +134,7 @@ class ExternalApiService
 
         // 2. ถ้าใน DB ตรวจแล้วยังไม่มีข้อมูล -> เรียก API ต้นทาง
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_yesterday';
-        
+
         try {
             $payload = $this->httpGet($url, 90);
         } catch (\Throwable $e) {
@@ -311,7 +311,7 @@ class ExternalApiService
             }
 
             $response = Http::timeout(60)
-                ->connectTimeout(30)
+                ->connectTimeout(60)
                 ->withHeaders([
                     'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                     'Accept'     => 'application/json, text/plain, */*',
