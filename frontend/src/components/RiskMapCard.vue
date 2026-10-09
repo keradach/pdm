@@ -3,6 +3,9 @@ import { ref, onMounted, onBeforeUnmount, watch } from 'vue';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import provinceBoundaries from '@/assets/th_adm1.json';
+import districtBoundariesUrl from '@/assets/th_adm2.json?url';
+import subdistrictBoundariesUrl from '@/assets/th_adm3.json?url';
+import { getNoneProduceDisplayRows } from '@/utils/noneProduce';
 
 // --- Props and Emits ---
 const props = defineProps({
@@ -12,24 +15,83 @@ const props = defineProps({
   temperatureData: Array,
   rainAverageData: { type: Array, default: () => [] }, // ปริมาณน้ำฝนเฉลี่ย 24 ชม. (riskmap)
   noneProduceData: { type: Array, default: () => [] },
+  noneProduceLevel: { type: String, default: 'province' },
+  noneProduceParentAreaCode: { type: String, default: null },
+  noneProduceSelectionPath: { type: Array, default: () => [] },
+  selectedAreaCode: { type: String, default: null },
+  rainAveragePeriod: { type: String, default: 'avg_rain_24h' },
   mapView: String, // 'risk', 'weather', 'dam', or 'rain_avg'
   rainfallPeriod: String, // 'today', 'yesterday', 'last_3_days', 'last_7_days'
 });
 
 
-const emit = defineEmits(['select-province', 'set-map-view', 'setMapView', 'set-rainfall-period', 'setRainfallPeriod']);
+const emit = defineEmits([
+  'select-province',
+  'select-none-produce-area',
+  'back-none-produce-area',
+  'clear-none-produce-area',
+  'set-map-view',
+  'setMapView',
+  'set-rainfall-period',
+  'setRainfallPeriod',
+  'set-rain-average-period',
+]);
 
 // --- Leaflet Map Setup ---
 const mapContainer = ref(null);
 let map = null;
 let markersLayer = new L.LayerGroup();
 let provincePolygonsLayer = null;
+const boundaryLoading = ref(false);
+const boundaryLoadError = ref(null);
+let boundaryRenderVersion = 0;
+let districtBoundaries = null;
+let subdistrictBoundaries = null;
+let previousSelectionDepth = 0;
+const thailandBounds = [[5.6, 97.3], [20.5, 105.7]];
 // Per-view caches (keyed by 'lat,lng') so Leaflet markers get reused across
 // renders instead of being destroyed & recreated on every tab/period change.
 const markerCache = {
   rain: new Map(),
   dam: new Map(),
   temperature: new Map(),
+};
+const boundariesCacheName = 'pdm-admin-boundaries-v1';
+
+const loadBoundaries = async (url) => {
+  let cache;
+  if ('caches' in window) {
+    try {
+      cache = await window.caches.open(boundariesCacheName);
+      const cachedResponse = await cache.match(url);
+      if (cachedResponse) {
+        try {
+          return await cachedResponse.json();
+        } catch (error) {
+          await cache.delete(url);
+          console.warn('Discarding invalid cached map boundaries:', error);
+        }
+      }
+    } catch (error) {
+      console.warn('Map boundary cache is unavailable; loading from network:', error);
+    }
+  }
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`Failed to load map boundaries (HTTP ${response.status})`);
+  }
+
+  const responseToCache = response.clone();
+  const boundaries = await response.json();
+  if (cache) {
+    try {
+      await cache.put(url, responseToCache);
+    } catch (error) {
+      console.warn('Unable to cache map boundaries:', error);
+    }
+  }
+  return boundaries;
 };
 
 
@@ -107,13 +169,12 @@ onMounted(() => {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
 
-  const thailandBounds = [[5.6, 97.3], [20.5, 105.7]];
   map.fitBounds(thailandBounds);
 
   markersLayer.addTo(map);
   provincePolygonsLayer = L.geoJSON(undefined, {
-    style: getProvincePolygonStyle,
-    onEachFeature: bindProvinceTooltip,
+    style: getBoundaryStyle,
+    onEachFeature: bindBoundaryTooltip,
   }).addTo(map);
 
   updateMap();
@@ -128,6 +189,7 @@ onBeforeUnmount(() => {
   markerCache.dam.clear();
   markerCache.temperature.clear();
   provincePolygonsLayer = null;
+  boundaryRenderVersion += 1;
 });
 
 
@@ -142,10 +204,13 @@ const scheduleUpdate = () => {
   });
 };
 
-const updateMap = () => {
+const updateMap = async () => {
   if (!map) return;
+  const renderVersion = ++boundaryRenderVersion;
   markersLayer.clearLayers();
   provincePolygonsLayer?.clearLayers();
+  boundaryLoading.value = false;
+  boundaryLoadError.value = null;
 
   if (props.mapView === 'temperature') {
     renderReusableMarkers('temperature', buildTemperatureItems());
@@ -154,7 +219,60 @@ const updateMap = () => {
   } else if (props.mapView === 'dam') {
     renderReusableMarkers('dam', buildDamItems());
   } else if (props.mapView === 'rain_avg') {
-    provincePolygonsLayer?.addData(provinceBoundaries);
+    const level = props.noneProduceLevel;
+    boundaryLoading.value = true;
+    try {
+      let boundaries = provinceBoundaries;
+      if (level === 'district') {
+        if (!districtBoundaries) {
+          districtBoundaries = await loadBoundaries(districtBoundariesUrl);
+        }
+        boundaries = districtBoundaries;
+      } else if (level === 'subdistrict') {
+        if (!subdistrictBoundaries) {
+          subdistrictBoundaries = await loadBoundaries(subdistrictBoundariesUrl);
+        }
+        boundaries = subdistrictBoundaries;
+      }
+
+      if (
+        renderVersion !== boundaryRenderVersion ||
+        props.mapView !== 'rain_avg' ||
+        props.noneProduceLevel !== level
+      ) return;
+
+      const parentCode = normalizeAdminCode(props.noneProduceParentAreaCode);
+      const childBoundaryField = level === 'district' ? 'ADM1_PCODE' : 'ADM2_PCODE';
+      const visibleBoundaries = level === 'province'
+        ? boundaries
+        : {
+          ...boundaries,
+          features: boundaries.features.filter((feature) =>
+            normalizeAdminCode(feature.properties[childBoundaryField]) === parentCode
+          ),
+        };
+      provincePolygonsLayer?.addData(visibleBoundaries);
+      const selectionDepth = props.noneProduceSelectionPath.length;
+      if (selectionDepth < previousSelectionDepth) {
+        const bounds = provincePolygonsLayer?.getBounds();
+        if (selectionDepth === 0) {
+          map.fitBounds(thailandBounds);
+        } else if (bounds?.isValid()) {
+          map.fitBounds(bounds);
+        }
+      }
+      previousSelectionDepth = selectionDepth;
+    } catch (error) {
+      if (renderVersion !== boundaryRenderVersion) return;
+      boundaryLoadError.value = 'ไม่สามารถโหลดขอบเขตพื้นที่สำหรับแผนที่ได้';
+      console.error('load administrative boundaries error:', error);
+    } finally {
+      if (renderVersion === boundaryRenderVersion) {
+        boundaryLoading.value = false;
+      }
+    }
+  } else {
+    boundaryLoading.value = false;
   }
 };
 
@@ -215,6 +333,10 @@ const renderReusableMarkers = (viewKey, items) => {
 // when clicking a tab or period button.
 watch(() => props.mapView, scheduleUpdate);
 watch(() => props.rainfallPeriod, scheduleUpdate);
+watch(() => props.noneProduceLevel, scheduleUpdate);
+watch(() => props.noneProduceParentAreaCode, scheduleUpdate);
+watch(() => props.selectedAreaCode, scheduleUpdate);
+watch(() => props.rainAveragePeriod, scheduleUpdate);
 watch(
   () => [
     props.provinces,
@@ -383,11 +505,9 @@ const rainAveragePeriods = [
   { key: 'avg_3d', label: 'สะสม 3 วัน' },
   { key: 'avg_7d', label: 'สะสม 7 วัน' },
 ];
-const selectedRainAveragePeriod = ref('avg_rain_24h');
-watch(selectedRainAveragePeriod, scheduleUpdate);
 
 const selectedRainAveragePeriodInfo = () =>
-  rainAveragePeriods.find((period) => period.key === selectedRainAveragePeriod.value) || rainAveragePeriods[0];
+  rainAveragePeriods.find((period) => period.key === props.rainAveragePeriod) || rainAveragePeriods[0];
 
 const getRainAvgColor = (val) => {
   for (const l of rainAvgLevels) {
@@ -402,19 +522,33 @@ const rainAverageByCode = () => new Map(
   props.rainAverageData.map((record) => [normalizeAdminCode(record.admin_code), record])
 );
 
+const featureAreaCode = (properties) => {
+  const field = {
+    province: 'ADM1_PCODE',
+    district: 'ADM2_PCODE',
+    subdistrict: 'ADM3_PCODE',
+  }[props.noneProduceLevel];
+  return normalizeAdminCode(properties[field]);
+};
 const noneProduceByCode = () => new Map(
-  props.noneProduceData.map((record) => [normalizeAdminCode(record.province_code), record])
+  getNoneProduceDisplayRows(
+    props.noneProduceData,
+    props.noneProduceLevel,
+    props.noneProduceParentAreaCode
+  ).map((record) => [record.area_code, record])
 );
 
-const getProvincePolygonStyle = (feature) => {
-  const code = normalizeAdminCode(feature.properties.ADM1_PCODE);
-  const rain = rainAverageByCode().get(code)?.[selectedRainAveragePeriod.value];
+const getBoundaryStyle = (feature) => {
+  const provinceCode = normalizeAdminCode(feature.properties.ADM1_PCODE);
+  const rain = rainAverageByCode().get(provinceCode)?.[props.rainAveragePeriod];
+  const selected = props.selectedAreaCode != null &&
+    featureAreaCode(feature.properties) === normalizeAdminCode(props.selectedAreaCode);
 
   return {
-    color: '#fff',
-    weight: 1,
+    color: selected ? '#212529' : '#fff',
+    weight: selected ? 2 : 1,
     fillColor: rain == null ? '#adb5bd' : getRainAvgColor(Number(rain)),
-    fillOpacity: rain == null ? 0.35 : 0.75,
+    fillOpacity: selected ? 0.9 : rain == null ? 0.35 : 0.75,
   };
 };
 
@@ -426,16 +560,19 @@ const appendTooltipRow = (container, label, value) => {
   container.append(row);
 };
 
-const bindProvinceTooltip = (feature, layer) => {
-  const code = normalizeAdminCode(feature.properties.ADM1_PCODE);
-  const rain = rainAverageByCode().get(code);
+const bindBoundaryTooltip = (feature, layer) => {
+  const code = featureAreaCode(feature.properties);
+  const provinceCode = normalizeAdminCode(feature.properties.ADM1_PCODE);
+  const rain = rainAverageByCode().get(provinceCode);
   const noneProduce = noneProduceByCode().get(code);
+  const levelPrefix = { province: 'ADM1', district: 'ADM2', subdistrict: 'ADM3' }[props.noneProduceLevel];
   const tooltip = document.createElement('div');
   const name = document.createElement('strong');
-  name.textContent = noneProduce?.province_name || rain?.admin_name || feature.properties.ADM1_TH;
+  name.textContent = noneProduce?.area_name || feature.properties[`${levelPrefix}_TH`];
   tooltip.append(name);
   const periodInfo = selectedRainAveragePeriodInfo();
 
+  appendTooltipRow(tooltip, 'รหัสพื้นที่', code);
   appendTooltipRow(tooltip, 'เกษตรกร', noneProduce
     ? `${Number(noneProduce.total_farmers || 0).toLocaleString('th-TH')} ราย`
     : 'ไม่มีข้อมูล');
@@ -451,6 +588,17 @@ const bindProvinceTooltip = (feature, layer) => {
   layer.on({
     mouseover: (event) => event.target.setStyle({ weight: 2, fillOpacity: 0.95 }),
     mouseout: (event) => provincePolygonsLayer?.resetStyle(event.target),
+    click: (event) => {
+      const levelPrefix = { province: 'ADM1', district: 'ADM2', subdistrict: 'ADM3' }[props.noneProduceLevel];
+      emit('select-none-produce-area', {
+        code,
+        level: props.noneProduceLevel,
+        name: feature.properties[`${levelPrefix}_TH`],
+      });
+      if (map && event.target.getBounds().isValid()) {
+        map.fitBounds(event.target.getBounds(), { maxZoom: 10 });
+      }
+    },
   });
 };
 </script>
@@ -482,6 +630,33 @@ const bindProvinceTooltip = (feature, layer) => {
 
       <div id="map-container" class="w-full h-full min-h-[500px] max-[640px]:min-h-[420px] max-[640px]:max-h-[420px]"
         ref="mapContainer"></div>
+      <div v-if="mapView === 'rain_avg'"
+        class="absolute left-13 top-13 z-[1000] flex flex-wrap items-center gap-1 rounded bg-white/90 p-2 text-xs text-ink shadow">
+        <span v-if="!noneProduceSelectionPath.length" class="font-medium">ทั้งประเทศ</span>
+        <template v-else>
+          <span>ทั้งประเทศ</span>
+          <template v-for="(area, index) in noneProduceSelectionPath" :key="area.code">
+            <span aria-hidden="true">›</span>
+            <span :class="index === noneProduceSelectionPath.length - 1 ? 'font-semibold' : ''">{{ area.name }}</span>
+          </template>
+        </template>
+        <button v-if="noneProduceSelectionPath.length" type="button"
+          class="ml-1 rounded border border-edge px-2 py-1 hover:bg-page" @click="emit('back-none-produce-area')">
+          ย้อนกลับ
+        </button>
+        <button v-if="noneProduceSelectionPath.length" type="button"
+          class="rounded border border-edge px-2 py-1 hover:bg-page" @click="emit('clear-none-produce-area')">
+          ล้างพื้นที่
+        </button>
+      </div>
+      <div v-if="mapView === 'rain_avg' && boundaryLoading"
+        class="absolute left-3 top-[54px] z-[1000] rounded bg-white/90 px-3 py-2 text-xs text-ink shadow">
+        กำลังโหลดขอบเขตพื้นที่...
+      </div>
+      <div v-if="mapView === 'rain_avg' && boundaryLoadError"
+        class="absolute left-3 top-[54px] z-[1000] rounded bg-red-50 px-3 py-2 text-xs text-red-700 shadow">
+        {{ boundaryLoadError }}
+      </div>
 
       <div v-if="mapView === 'rain'"
         class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
@@ -516,8 +691,8 @@ const bindProvinceTooltip = (feature, layer) => {
           <div class="grid grid-cols-2 gap-1 mb-2">
             <button v-for="period in rainAveragePeriods" :key="period.key" type="button"
               class="rounded border border-[#dee2e6] px-2 py-1 text-[11px] text-[#495057]"
-              :class="selectedRainAveragePeriod === period.key ? 'bg-pdm-green-deep text-white font-semibold' : 'bg-[#f8f9fa]'"
-              :aria-pressed="selectedRainAveragePeriod === period.key" @click="selectedRainAveragePeriod = period.key">
+              :class="rainAveragePeriod === period.key ? 'bg-pdm-green-deep text-white font-semibold' : 'bg-[#f8f9fa]'"
+              :aria-pressed="rainAveragePeriod === period.key" @click="emit('set-rain-average-period', period.key)">
               {{ period.label }}
             </button>
           </div>
@@ -535,8 +710,10 @@ const bindProvinceTooltip = (feature, layer) => {
           <p class="mt-2 text-[0.75rem] text-muted leading-tight">
             สีพื้นที่ = ปริมาณฝนเฉลี่ยสะสม (มม.)<br>
             แหล่งข้อมูล: riskmap.doae.go.th<br>
-            ขอบเขต: <a href="https://github.com/piyayut-ch/mapthai" target="_blank" rel="noreferrer"
-              class="hover:underline">mapthai / UNOCHA</a>
+            ขอบเขตจังหวัด: <a href="https://github.com/piyayut-ch/mapthai" target="_blank" rel="noreferrer"
+              class="hover:underline">mapthai / UNOCHA</a><br>
+            ขอบเขตอำเภอ/ตำบล: <a href="https://data.humdata.org/dataset/cod-ab-tha" target="_blank" rel="noreferrer"
+              class="hover:underline">OCHA COD-AB Thailand</a>
           </p>
         </div>
       </div>

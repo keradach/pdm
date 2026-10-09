@@ -295,8 +295,8 @@ class ExternalApiService
     /**
      * ดึงข้อมูลพื้นที่การเกษตรที่เกษตรกรยังไม่เก็บเกี่ยว
      *
-     * @param string $level   'province' หรือ 'amphur'
-     * @param string|null $areaCode รหัสจังหวัด 2 หลัก / รหัสอำเภอ 4 หลัก
+     * @param string $level   'province', 'district' หรือ 'subdistrict'
+     * @param string|null $areaCode รหัสจังหวัด 2 หลัก / อำเภอ 4 หลัก / ตำบล 6 หลัก
      * @param string|null $dateDisaster วันที่เกิดภัย (YYYY-MM-DD)
      */
     public function noneProduce(string $level = 'province', ?string $areaCode = null, ?string $dateDisaster = null, bool $force = false): mixed
@@ -367,4 +367,3 @@ class ExternalApiService
         ];
     }
 }
-

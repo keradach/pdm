@@ -1,55 +1,86 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed } from 'vue'
+import { getNoneProduceDisplayRows } from '@/utils/noneProduce'
 
 const props = defineProps({
   /** ข้อมูลจาก store.noneProduceData */
   data: { type: Array, default: () => [] },
+  sumAll: { type: Object, default: null },
+  parentAreaCode: { type: String, default: null },
+  selectionPath: { type: Array, default: () => [] },
   /** วันที่เกิดภัย (YYYY-MM-DD) ที่ store ใช้อยู่ */
-  date: { type: String, default: '2026-09-25' },
+  date: { type: String, default: '' },
+  level: { type: String, default: 'province' },
+  rainAveragePeriod: { type: String, default: 'avg_rain_24h' },
+  loading: { type: Boolean, default: false },
+  error: { type: String, default: null },
   /** ปริมาณน้ำฝนเฉลี่ย 24 ชม. (riskmap) — ใช้สำหรับ join กับ noneProduce */
   rainAverageData: { type: Array, default: () => [] },
 })
 
 const emit = defineEmits(['update:date'])
 
-// ใช้ local date เพื่อ two-way binding กับ date picker
-// const localDate = ref(props.date)
-const localDate = ref("2026-09-25");
-// watch(() => props.date, (v) => { localDate.value = v })
-
-function onDateChange() {
-  emit('update:date', localDate.value)
+const levelLabels = {
+  province: 'จังหวัด',
+  district: 'อำเภอ/เขต',
+  subdistrict: 'ตำบล/แขวง',
 }
-
-const normalizeAdminCode = (code) => String(code ?? '').replace(/^TH/i, '').padStart(2, '0')
-
-// สร้าง Map จาก admin_code → avg_rain_24h เพื่อ join ได้เร็ว
+const rainfallPeriodLabels = {
+  avg_rain_24h: '24 ชั่วโมง',
+  avg_yesterday: 'เมื่อวาน',
+  avg_3d: 'สะสม 3 วัน',
+  avg_7d: 'สะสม 7 วัน',
+}
+const rainfallPeriodLabel = computed(() =>
+  rainfallPeriodLabels[props.rainAveragePeriod] || rainfallPeriodLabels.avg_rain_24h
+)
+const tableScopeName = computed(() => {
+  if (props.level === 'district') return props.selectionPath[0]?.name || 'ทั้งประเทศ'
+  if (props.level === 'subdistrict') {
+    return props.selectionPath[1]?.name || props.selectionPath[0]?.name || 'ทั้งประเทศ'
+  }
+  return 'ทั้งประเทศ'
+})
+const normalizeAdminCode = (code) => String(code ?? '').replace(/^TH/i, '')
+  .padStart(2, '0')
+// สร้าง Map จาก admin_code เพื่อ join ได้เร็ว
 const rainMap = computed(() => {
   const m = new Map()
-  props.rainAverageData.forEach(r => m.set(normalizeAdminCode(r.admin_code), r.avg_rain_24h))
+  props.rainAverageData.forEach(r => m.set(normalizeAdminCode(r.admin_code), r))
   return m
 })
 
 // รายการ sort ตาม total_plant มากสุดก่อน + แนบข้อมูลฝน
 const rows = computed(() =>
-  [...props.data]
+  getNoneProduceDisplayRows(props.data, props.level, props.parentAreaCode)
     .sort((a, b) => Number(b.total_plant) - Number(a.total_plant))
-    .map(item => ({
-      ...item,
-      avg_rain_24h: rainMap.value.get(normalizeAdminCode(item.province_code)) ?? null,
-    }))
+    .map(item => {
+      const averageRain = rainMap.value.get(normalizeAdminCode(item.province_code))?.[props.rainAveragePeriod]
+      const numericRain = averageRain == null ? null : Number(averageRain)
+      return {
+        ...item,
+        avg_rain: Number.isFinite(numericRain) ? numericRain : null,
+      }
+    })
 )
 
-// สรุปรวมประเทศ
-const totals = computed(() => ({
-  farmers: rows.value.reduce((s, r) => s + Number(r.total_farmers || 0), 0),
-  plant: rows.value.reduce((s, r) => s + Number(r.total_plant || 0), 0),
-}))
+const sumAllFarmers = computed(() => {
+  const value = props.sumAll?.total_farmers ?? props.sumAll?.totalFarmers
+  return value == null ? null : Number(value)
+})
+const sumAllPlant = computed(() => {
+  const value = props.sumAll?.total_plant ?? props.sumAll?.totalPlant
+  return value == null ? null : Number(value)
+})
 
-// แสดง top-N rows และ toggle all
-const showAll = ref(false)
-const TOP = 10
-const displayRows = computed(() => showAll.value ? rows.value : rows.value.slice(0, TOP))
+const totals = computed(() => ({
+  farmers: Number.isFinite(sumAllFarmers.value)
+    ? sumAllFarmers.value
+    : rows.value.reduce((s, r) => s + Number(r.total_farmers || 0), 0),
+  plant: Number.isFinite(sumAllPlant.value)
+    ? sumAllPlant.value
+    : rows.value.reduce((s, r) => s + Number(r.total_plant || 0), 0),
+}))
 
 function formatRai(val) {
   const n = Number(val)
@@ -75,7 +106,8 @@ function rainBadgeStyle(rain) {
 </script>
 
 <template>
-  <section class="card min-w-0 p-3" aria-labelledby="noneproduce-heading">
+  <section class="card relative flex min-h-0 min-w-0 flex-col p-3" aria-labelledby="noneproduce-heading"
+    :aria-busy="loading">
     <!-- Header -->
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <h2 id="noneproduce-heading" class="text-[14px] font-semibold text-ink flex items-center gap-1.5">
@@ -83,22 +115,28 @@ function rainBadgeStyle(rain) {
         <span>พื้นที่เกษตรยังไม่เก็บเกี่ยว</span>
       </h2>
 
-      <!-- Date picker -->
+      <!-- Date filter -->
       <div class="flex items-center gap-2">
         <label for="noneproduce-date" class="text-[11px] text-muted whitespace-nowrap">วันที่คาดว่าเกิดภัย</label>
-        <input id="noneproduce-date" v-model="localDate" type="date"
+        <input id="noneproduce-date" :value="date" type="date"
           class="border border-edge rounded px-2 py-0.5 text-[12px] text-ink bg-white focus:outline-none focus:ring-1 focus:ring-pdm-green-deep"
-          @change="onDateChange" />
+          @change="emit('update:date', $event.target.value)" />
       </div>
     </div>
 
+    <p v-if="error" class="mb-2 rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+      {{ error }}
+    </p>
     <!-- ข้อมูลไม่มี -->
-    <p v-if="!data.length" class="text-center text-xs text-muted py-6">
+    <p v-if="!data.length && !loading && !error" class="text-center text-xs text-muted py-6">
       ไม่พบข้อมูล — กรุณาตรวจสอบวันที่หรือการเชื่อมต่อ API
     </p>
 
-    <template v-else>
+    <template v-if="rows.length > 0 || sumAllFarmers !== null || sumAllPlant !== null">
       <!-- Summary chips -->
+      <p class="mb-2 inline-flex w-fit rounded bg-pdm-green-deep px-2.5 py-1 text-xs font-bold text-white">
+        {{ tableScopeName }}
+      </p>
       <div class="flex flex-wrap gap-2 mb-3">
         <div class="flex items-center gap-1.5 rounded-lg border border-edge bg-page px-3 py-1.5">
           <span class="text-[20px]">👨‍🌾</span>
@@ -117,30 +155,35 @@ function rainBadgeStyle(rain) {
       </div>
 
       <!-- Table -->
-      <div class="overflow-x-auto rounded-lg border border-edge">
+      <p v-if="!rows.length" class="py-4 text-center text-xs text-muted">
+        ไม่พบข้อมูลใน polygon ที่เลือก
+      </p>
+      <div v-else class="min-h-0 flex-1 overflow-auto rounded-lg border border-edge">
         <table class="w-full text-[12px] text-left">
           <thead>
             <tr class="bg-pdm-green-deep text-white">
-              <th class="px-3 py-2 font-semibold">#</th>
-              <th class="px-3 py-2 font-semibold">จังหวัด</th>
-              <th class="px-3 py-2 font-semibold text-right">เกษตรกร (ราย)</th>
-              <th class="px-3 py-2 font-semibold text-right">พื้นที่ (ไร่)</th>
-              <th class="px-3 py-2 font-semibold text-center">ฝน 24 ชม. (มม.)</th>
+              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold">#</th>
+              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold">{{ levelLabels[level] ||
+                levelLabels.province }}</th>
+              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-right">เกษตรกร (ราย)</th>
+              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-right">พื้นที่ (ไร่)</th>
+              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-center">ฝนเฉลี่ย {{
+                rainfallPeriodLabel }} (มม.)</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(row, idx) in displayRows" :key="row.province_code"
+            <tr v-for="(row, idx) in rows"
+              :key="[row.province_code, row.amphur_code, row.tambon_code, row.area_code].filter(Boolean).join('-') || idx"
               :class="idx % 2 === 0 ? 'bg-white' : 'bg-page/60'"
               class="border-t border-edge hover:bg-pdm-green-deep/5 transition-colors">
               <td class="px-3 py-2 text-muted font-mono">{{ idx + 1 }}</td>
-              <td class="px-3 py-2 font-medium text-ink">{{ row.province_name }}</td>
+              <td class="px-3 py-2 font-medium text-ink">{{ row.area_name }}</td>
               <td class="px-3 py-2 text-right text-ink">{{ formatNumber(row.total_farmers) }}</td>
               <td class="px-3 py-2 text-right text-ink">{{ formatRai(row.total_plant) }}</td>
               <td class="px-3 py-2 text-center">
-                <span v-if="row.avg_rain_24h !== null"
-                  class="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold"
-                  :style="{ backgroundColor: rainBadgeStyle(row.avg_rain_24h).bg, color: rainBadgeStyle(row.avg_rain_24h).text }">
-                  {{ rainBadgeStyle(row.avg_rain_24h).label }}
+                <span v-if="row.avg_rain !== null" class="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold"
+                  :style="{ backgroundColor: rainBadgeStyle(row.avg_rain).bg, color: rainBadgeStyle(row.avg_rain).text }">
+                  {{ rainBadgeStyle(row.avg_rain).label }}
                 </span>
                 <span v-else class="text-muted">-</span>
               </td>
@@ -149,16 +192,9 @@ function rainBadgeStyle(rain) {
         </table>
       </div>
 
-      <!-- Show more / less -->
-      <div v-if="rows.length > TOP" class="mt-2 text-center">
-        <button class="text-[12px] text-pdm-green-deep hover:underline cursor-pointer" @click="showAll = !showAll">
-          {{ showAll ? `ซ่อน (แสดง ${TOP} แรก)` : `ดูทั้งหมด ${rows.length} จังหวัด` }}
-        </button>
-      </div>
-
       <!-- Legend ฝน -->
       <div class="mt-3 flex flex-wrap gap-2 text-[10px] text-muted border-t border-edge pt-2">
-        <span class="font-medium text-ink">ระดับฝน 24 ชม.:</span>
+        <span class="font-medium text-ink">ระดับฝนเฉลี่ย {{ rainfallPeriodLabel }}:</span>
         <span class="flex items-center gap-1"><span class="w-3 h-3 rounded inline-block"
             style="background:#0dcaf0"></span>0 มม.</span>
         <span class="flex items-center gap-1"><span class="w-3 h-3 rounded inline-block"
@@ -180,5 +216,15 @@ function rainBadgeStyle(rain) {
           class="hover:underline">riskmap.doae.go.th</a>
       </p>
     </template>
+
+    <div v-if="loading"
+      class="absolute inset-0 z-20 flex items-center justify-center rounded-[inherit] bg-white/75 backdrop-blur-[1px]"
+      role="status" aria-live="polite">
+      <div class="flex items-center gap-3 rounded-lg border border-edge bg-white px-4 py-3 text-sm text-ink shadow-md">
+        <span class="h-5 w-5 animate-spin rounded-full border-2 border-pdm-green-deep border-t-transparent"
+          aria-hidden="true"></span>
+        <span>กำลังโหลดข้อมูลพื้นที่...</span>
+      </div>
+    </div>
   </section>
 </template>

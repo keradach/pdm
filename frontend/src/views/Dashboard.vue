@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useDashboardStore } from '@/stores/dashboard'
 import { storeToRefs } from 'pinia'
 
@@ -16,6 +16,10 @@ import WeatherCard from '@/components/WeatherCard.vue'
 import NoneProduceCard from '@/components/NoneProduceCard.vue'
 
 const store = useDashboardStore()
+const riskMapColumn = ref(null)
+const noneProduceCardHeight = ref(null)
+let riskMapResizeObserver
+
 const {
   // summary,
   // gauges,
@@ -30,12 +34,35 @@ const {
   temperatureData,
   rainAverageData,
   noneProduceData,
+  noneProduceSumAll,
   noneProduceDate,
+  noneProduceLevel,
+  noneProduceParentAreaCode,
+  noneProduceSelectionPath,
+  noneProduceSelectedAreaCode,
+  noneProduceLoading,
+  noneProduceError,
   mapView,
   rainfallPeriod,
+  rainAveragePeriod,
 } = storeToRefs(store)
 
-onMounted(() => store.fetchAll())
+onMounted(async () => {
+  store.fetchAll()
+  await nextTick()
+
+  const riskMapCard = riskMapColumn.value?.querySelector('.card')
+  if (!riskMapCard) return
+
+  const updateNoneProduceCardHeight = () => {
+    noneProduceCardHeight.value = Math.round(riskMapCard.getBoundingClientRect().height)
+  }
+  riskMapResizeObserver = new ResizeObserver(updateNoneProduceCardHeight)
+  riskMapResizeObserver.observe(riskMapCard)
+  updateNoneProduceCardHeight()
+})
+
+onUnmounted(() => riskMapResizeObserver?.disconnect())
 </script>
 
 <template>
@@ -48,21 +75,35 @@ onMounted(() => store.fetchAll())
     กำลังโหลดข้อมูล...</div>
 
   <section class="flex flex-col gap-4">
-    <div class="grid grid-cols-[4fr_2fr] gap-3 items-stretch max-[900px]:grid-cols-1">
-      <div class="flex flex-col gap-3 min-w-0">
-        <RiskMapCard class="flex-1 w-full min-w-0" :provinces="provinces" :selected-province="selectedProvince"
+    <div class="grid grid-cols-[4fr_2fr] gap-3 items-stretch min-h-0 max-[900px]:grid-cols-1">
+      <div ref="riskMapColumn" class="flex min-h-0 flex-col gap-3 min-w-0">
+        <RiskMapCard class="w-full min-w-0" :provinces="provinces" :selected-province="selectedProvince"
           :map-view="mapView" :rainfall-period="rainfallPeriod"
           :dam-water-data="damWaterData" :temperature-data="temperatureData" :rain-average-data="rainAverageData"
-          :none-produce-data="noneProduceData" @select-province="store.selectProvince($event)"
+          :none-produce-data="noneProduceData" :none-produce-level="noneProduceLevel"
+          :none-produce-sum-all="noneProduceSumAll"
+          :none-produce-parent-area-code="noneProduceParentAreaCode"
+          :none-produce-selection-path="noneProduceSelectionPath"
+          :selected-area-code="noneProduceSelectedAreaCode" :rain-average-period="rainAveragePeriod"
+          @select-none-produce-area="store.selectNoneProduceArea($event)"
+          @back-none-produce-area="store.goBackNoneProduceArea()"
+          @clear-none-produce-area="store.clearNoneProduceArea()"
+          @set-rain-average-period="store.setRainAveragePeriod($event)"
+          @select-province="store.selectProvince($event)"
           @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
 
         <!-- WeatherCard displayed under RiskMapCard when responsive (<= 900px) -->
         <WeatherCard class="hidden max-[900px]:block" />
       </div>
       <div
-        class="flex flex-col gap-3 min-w-0 max-[900px]:grid max-[900px]:grid-cols-2 max-[640px]:flex max-[640px]:flex-col">
-        <NoneProduceCard class="w-full min-w-0" :data="noneProduceData" :date="noneProduceDate"
-          :rain-average-data="rainAverageData" @update:date="store.setNoneProduceDate($event)" />
+        class="flex min-h-0 flex-col gap-3 min-w-0 max-[900px]:grid max-[900px]:grid-cols-2 max-[640px]:flex max-[640px]:flex-col"
+        :style="noneProduceCardHeight ? { height: `${noneProduceCardHeight}px` } : undefined">
+        <NoneProduceCard class="w-full min-h-0 min-w-0 flex-1" :data="noneProduceData" :date="noneProduceDate"
+          :sum-all="noneProduceSumAll" :parent-area-code="noneProduceParentAreaCode"
+          :selection-path="noneProduceSelectionPath"
+          :rain-average-data="rainAverageData" :level="noneProduceLevel"
+          :rain-average-period="rainAveragePeriod" :loading="noneProduceLoading" :error="noneProduceError"
+          @update:date="store.setNoneProduceDate($event)" />
         <!-- <DisasterPieChart class="w-full min-w-0" :breakdown="breakdown" /> -->
       </div>
     </div>

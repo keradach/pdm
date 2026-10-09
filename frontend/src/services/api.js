@@ -64,8 +64,8 @@ export default {
       .then((r) => r.data),
 
   // ---- efarmer.doae.go.th — พื้นที่ยังไม่เก็บเกี่ยว ----
-  // level: 'province' | 'amphur'
-  // areaCode: รหัสจังหวัด 2 หลัก หรือ รหัสอำเภอ 4 หลัก (optional)
+  // level: 'province' | 'district' | 'subdistrict'
+  // areaCode: รหัสจังหวัด 2 หลัก, อำเภอ 4 หลัก หรือตำบล 6 หลัก (optional)
   // dateDisaster: 'YYYY-MM-DD'
   getNoneProduce: (params = {}) =>
     api.post("/external/none-produce", params).then((r) => r.data),

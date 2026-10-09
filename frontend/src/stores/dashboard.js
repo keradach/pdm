@@ -18,10 +18,20 @@ export const useDashboardStore = defineStore("dashboard", {
     temperatureData: [],
     mapView: "rain_avg", // 'risk' or 'rain' or 'dam' or 'rain_avg'
     rainfallPeriod: "today", // 'today', 'yesterday', 'last_3_days', 'last_7_days'
+    rainAveragePeriod: "avg_rain_24h",
 
     // --- ใหม่: พื้นที่ยังไม่เก็บเกี่ยว (efarmer.doae.go.th) ---
     noneProduceData: [],
-    noneProduceDate: new Date().toISOString().slice(0, 10), // YYYY-MM-DD
+    noneProduceSumAll: null,
+    noneProduceDate: "2026-09-25",
+    noneProduceLevel: "province",
+    noneProduceAreaCode: null,
+    noneProduceParentAreaCode: null,
+    noneProduceSelectionPath: [],
+    noneProduceSelectedAreaCode: null,
+    noneProduceLoading: false,
+    noneProduceError: null,
+    noneProduceRequestId: 0,
 
     // --- ใหม่: ปริมาณน้ำฝนเฉลี่ย 24 ชม. (riskmap.doae.go.th) ---
     rainAverageData: [],
@@ -47,7 +57,6 @@ export const useDashboardStore = defineStore("dashboard", {
           alerts,
           damWaterData,
           temperatureData,
-          noneProduceResult,
           rainAverageResult,
         ] = await Promise.all([
           api.getSummary(),
@@ -64,12 +73,6 @@ export const useDashboardStore = defineStore("dashboard", {
           // api.getRain7d(),
           api.getDamWater(),
           api.getTemperatureStations().catch(() => []),
-          api
-            .getNoneProduce({
-              level: "province",
-              dateDisaster: this.noneProduceDate,
-            })
-            .catch(() => ({ data: [] })),
           api.getRainAverage("p").catch(() => ({ data: [] })),
         ]);
         this.summary = summary;
@@ -92,12 +95,12 @@ export const useDashboardStore = defineStore("dashboard", {
         this.temperatureData = Array.isArray(temperatureData)
           ? temperatureData
           : [];
-        this.noneProduceData = noneProduceResult?.data || [];
         this.rainAverageData = rainAverageResult?.data || [];
         this.selectedProvince =
           provinces.find((p) => p.risk_level === "critical") ||
           provinces[0] ||
           null;
+        this.fetchNoneProduce();
       } catch (e) {
         // API not reachable yet (e.g. backend still migrating) - keep the
         // page usable with an inline error instead of a blank screen.
@@ -121,17 +124,105 @@ export const useDashboardStore = defineStore("dashboard", {
       this.rainfallPeriod = period;
     },
 
-    async setNoneProduceDate(date) {
-      this.noneProduceDate = date;
+    setRainAveragePeriod(period) {
+      this.rainAveragePeriod = period;
+    },
+
+    async fetchNoneProduce() {
+      const requestId = ++this.noneProduceRequestId;
+      this.noneProduceLoading = true;
+      this.noneProduceError = null;
       try {
         const result = await api.getNoneProduce({
-          level: "province",
-          dateDisaster: date,
+          level: this.noneProduceLevel,
+          areaCode: this.noneProduceAreaCode,
+          dateDisaster: this.noneProduceDate,
         });
-        this.noneProduceData = result?.data || [];
+        if (requestId !== this.noneProduceRequestId) return;
+        this.noneProduceData = Array.isArray(result?.data)
+          ? result.data
+          : Array.isArray(result?.data?.data)
+            ? result.data.data
+          : Array.isArray(result)
+            ? result
+            : [];
+        this.noneProduceSumAll =
+          result?.sumAll ?? result?.data?.sumAll ?? result?.totals ?? null;
       } catch (e) {
+        if (requestId !== this.noneProduceRequestId) return;
+        this.noneProduceError =
+          "ไม่สามารถโหลดข้อมูลพื้นที่ยังไม่เก็บเกี่ยวได้ กรุณาลองใหม่อีกครั้ง";
         console.error("fetchNoneProduce error:", e);
+      } finally {
+        if (requestId === this.noneProduceRequestId) {
+          this.noneProduceLoading = false;
+        }
       }
+    },
+
+    async selectNoneProduceArea({ code, name, level }) {
+      if (level !== this.noneProduceLevel || !code) return;
+
+      if (level === "province") {
+        this.noneProduceSelectionPath = [{ code, name, level }];
+      } else if (level === "district") {
+        this.noneProduceSelectionPath = [
+          ...this.noneProduceSelectionPath.slice(0, 1),
+          { code, name, level },
+        ];
+      } else if (level === "subdistrict") {
+        this.noneProduceSelectionPath = [
+          ...this.noneProduceSelectionPath.slice(0, 2),
+          { code, name, level },
+        ];
+        this.noneProduceSelectedAreaCode = code;
+        return;
+      } else {
+        return;
+      }
+
+      this.syncNoneProduceSelection();
+      await this.fetchNoneProduce();
+    },
+
+    async goBackNoneProduceArea() {
+      if (this.noneProduceSelectionPath.length === 0) return;
+      this.noneProduceSelectionPath = this.noneProduceSelectionPath.slice(0, -1);
+      this.syncNoneProduceSelection();
+      await this.fetchNoneProduce();
+    },
+
+    async clearNoneProduceArea() {
+      this.noneProduceSelectionPath = [];
+      this.syncNoneProduceSelection();
+      await this.fetchNoneProduce();
+    },
+
+    syncNoneProduceSelection() {
+      const path = this.noneProduceSelectionPath;
+      const province = path[0];
+      const district = path[1];
+      const leaf = path[2];
+      this.noneProduceSelectedAreaCode = leaf?.code ?? null;
+
+      if (!province) {
+        this.noneProduceLevel = "province";
+        this.noneProduceAreaCode = null;
+        this.noneProduceParentAreaCode = null;
+      } else if (!district) {
+        this.noneProduceLevel = "district";
+        this.noneProduceAreaCode = province.code;
+        this.noneProduceParentAreaCode = province.code;
+      } else {
+        this.noneProduceLevel = "subdistrict";
+        this.noneProduceAreaCode = district.code;
+        this.noneProduceParentAreaCode = district.code;
+      }
+    },
+
+    async setNoneProduceDate(date) {
+      this.noneProduceDate = date;
+      await this.fetchNoneProduce();
     },
 
     async refreshRainAverage(level = "p") {
