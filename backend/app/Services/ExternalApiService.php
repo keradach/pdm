@@ -176,7 +176,7 @@ class ExternalApiService
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_today';
 
         // ตรวจสอบใน DB ก่อน (อายุแคช 10 นาทีสำหรับข้อมูลระหว่างวัน)
-        $payload = $this->fetch('thaiwater:rain/today', fn() => $this->httpGet($url, 60), 600, $force);
+        $payload = $this->fetch('thaiwater:rain/today', fn() => $this->httpGet($url, 60), 7200, $force); // แคช 2 ชั่วโมง
 
         // บันทึก snapshot ของวันปัจจุบันลง time series ด้วย
         if (!empty($payload) && is_array($payload) && ($payload['result'] ?? '') === 'OK') {
@@ -193,28 +193,28 @@ class ExternalApiService
     {
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/public/rain_24h';
 
-        return $this->fetch('thaiwater:rain/24h', fn() => $this->httpGet($url, 60), 600, $force);
+        return $this->fetch('thaiwater:rain/24h', fn() => $this->httpGet($url, 60), 7200, $force); // แคช 2 ชั่วโมง
     }
 
     public function rain3d(bool $force = false): mixed
     {
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/provinces/rain3d';
 
-        return $this->fetch('thaiwater:rain/3d', fn() => $this->httpGet($url, 60), 1800, $force);
+        return $this->fetch('thaiwater:rain/3d', fn() => $this->httpGet($url, 60), 7200, $force); // แคช 2 ชั่วโมง
     }
 
     public function rain7d(bool $force = false): mixed
     {
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/provinces/rain7d';
 
-        return $this->fetch('thaiwater:rain/7d', fn() => $this->httpGet($url, 60), 3600, $force);
+        return $this->fetch('thaiwater:rain/7d', fn() => $this->httpGet($url, 60), 7200, $force); // แคช 2 ชั่วโมง
     }
 
     public function damWater(bool $force = false): mixed
     {
         $url = 'https://api-v3.thaiwater.net/api/v1/thaiwater30/analyst/dam';
 
-        return $this->fetch('thaiwater:analyst/dam', fn() => $this->httpGet($url, 45), 1800, $force);
+        return $this->fetch('thaiwater:analyst/dam', fn() => $this->httpGet($url, 45), 7200, $force); // แคช 2 ชั่วโมง
     }
 
     // ------------------------------------------------------------------
@@ -225,7 +225,7 @@ class ExternalApiService
     {
         $url = 'https://efarmer.doae.go.th/api/disaster/breakdown';
 
-        return $this->fetch('efarmer:disaster/breakdown', fn() => $this->httpGet($url, 30), 1800, $force);
+        return $this->fetch('efarmer:disaster/breakdown', fn() => $this->httpGet($url, 30), 14400, $force); // แคช 4 ชั่วโมง
     }
 
     // ------------------------------------------------------------------
@@ -236,14 +236,14 @@ class ExternalApiService
     {
         $url = 'https://wxmap.tmd.go.th/api/awsnow';
 
-        return $this->fetch('tmd:awsnow', fn() => $this->httpGet($url, 30), 900, $force);
+        return $this->fetch('tmd:awsnow', fn() => $this->httpGet($url, 30), 14400, $force); // แคช 4 ชั่วโมง
     }
 
     public function rainfall(bool $force = false): mixed
     {
         $url = 'https://wxmap.tmd.go.th/api/awsrainfall';
 
-        return $this->fetch('tmd:awsrainfall', fn() => $this->httpGet($url, 30), 600, $force);
+        return $this->fetch('tmd:awsrainfall', fn() => $this->httpGet($url, 30), 14400, $force); // แคช 4 ชั่วโมง
     }
 
     // ------------------------------------------------------------------
@@ -325,7 +325,7 @@ class ExternalApiService
             }
 
             return $response->json();
-        }, 1800, $force); // แคช 30 นาที
+        }, 14400, $force); // แคช 4 ชั่วโมง
     }
 
     // ------------------------------------------------------------------
@@ -346,7 +346,7 @@ class ExternalApiService
             $url .= "&admin_code={$adminCode}";
         }
 
-        return $this->fetch($cacheKey, fn() => $this->httpGet($url, 30), 600, $force); // แคช 10 นาที
+        return $this->fetch($cacheKey, fn() => $this->httpGet($url, 30), 14400, $force); // แคช 4 ชั่วโมง
     }
 
     /**
