@@ -81,6 +81,20 @@ class ExternalApiService
                 return $cached->payload;
             }
 
+            // ถ้า endpoint นี้ยังไม่มีข้อมูลใน DB แต่เป็น efarmer:none-produce ให้ลองค้นหาข้อมูลล่าสุดในแคชของ level เดียวกัน
+            if (str_starts_with($endpoint, 'efarmer:none-produce:')) {
+                $parts = explode(':', $endpoint);
+                $levelPrefix = isset($parts[2]) ? "efarmer:none-produce:{$parts[2]}:%" : "efarmer:none-produce:%";
+                $latestFallback = ApiCache::where('endpoint', 'like', $levelPrefix)
+                    ->whereNotNull('payload')
+                    ->latest('fetched_at')
+                    ->first();
+                if ($latestFallback && !empty($latestFallback->payload)) {
+                    Log::info("Using fallback cached data from {$latestFallback->endpoint} for {$endpoint}");
+                    return $latestFallback->payload;
+                }
+            }
+
             return [
                 'result' => 'FAILED',
                 'message' => 'Upstream service unavailable: ' . $e->getMessage(),
@@ -305,15 +319,18 @@ class ExternalApiService
         $cacheKey = "efarmer:none-produce:{$level}:{$dateDisaster}" . ($areaCode ? ":{$areaCode}" : '');
 
         return $this->fetch($cacheKey, function () use ($level, $areaCode, $dateDisaster) {
-            @set_time_limit(240);
+            $isConsole = app()->runningInConsole();
+            $timeout = $isConsole ? 300 : 50; // CLI รันได้ 5 นาที, ส่วน Web Server จำกัด 50s ป้องกันโดน Load Balancer 60s ตัด
+
+            @set_time_limit($isConsole ? 360 : 60);
 
             $formData = ['level' => $level, 'dateDisaster' => $dateDisaster];
             if ($areaCode) {
                 $formData['areaCode'] = $areaCode;
             }
 
-            $response = Http::timeout(180)
-                ->connectTimeout(180)
+            $response = Http::timeout($timeout)
+                ->connectTimeout($timeout)
                 ->withHeaders([
                     'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                     'Accept'     => 'application/json, text/plain, */*',
