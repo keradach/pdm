@@ -305,13 +305,15 @@ class ExternalApiService
         $cacheKey = "efarmer:none-produce:{$level}:{$dateDisaster}" . ($areaCode ? ":{$areaCode}" : '');
 
         return $this->fetch($cacheKey, function () use ($level, $areaCode, $dateDisaster) {
+            @set_time_limit(240);
+
             $formData = ['level' => $level, 'dateDisaster' => $dateDisaster];
             if ($areaCode) {
                 $formData['areaCode'] = $areaCode;
             }
 
-            $response = Http::timeout(120)
-                ->connectTimeout(120)
+            $response = Http::timeout(180)
+                ->connectTimeout(180)
                 ->withHeaders([
                     'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                     'Accept'     => 'application/json, text/plain, */*',
