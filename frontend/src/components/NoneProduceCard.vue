@@ -106,20 +106,20 @@ function rainBadgeStyle(rain) {
 </script>
 
 <template>
-  <section class="card relative flex min-h-0 min-w-0 flex-col p-3" aria-labelledby="noneproduce-heading"
+  <section class="card overflow-hidden relative flex min-h-0 min-w-0 flex-col p-3" aria-labelledby="noneproduce-heading"
     :aria-busy="loading">
     <!-- Header -->
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-      <h2 id="noneproduce-heading" class="text-[14px] font-semibold text-ink flex items-center gap-1.5">
+      <h2 id="noneproduce-heading" class="text-[14px] font-semibold text-ink flex items-center gap-1.5 shrink-0">
         <span>🌾</span>
         <span>พื้นที่เกษตรยังไม่เก็บเกี่ยว</span>
       </h2>
 
       <!-- Date filter -->
-      <div class="flex items-center gap-2">
-        <label for="noneproduce-date" class="text-[11px] text-muted whitespace-nowrap">วันที่คาดว่าเกิดภัย</label>
+      <div class="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full">
+        <label for="noneproduce-date" class="text-[11px] text-muted whitespace-nowrap shrink-0">วันที่คาดว่าเกิดภัย</label>
         <input id="noneproduce-date" :value="date" type="date"
-          class="border border-edge rounded px-2 py-0.5 text-[12px] text-ink bg-white focus:outline-none focus:ring-1 focus:ring-pdm-green-deep"
+          class="min-w-0 max-w-full border border-edge rounded px-2 py-0.5 text-[12px] text-ink bg-white focus:outline-none focus:ring-1 focus:ring-pdm-green-deep"
           @change="emit('update:date', $event.target.value)" />
       </div>
     </div>
