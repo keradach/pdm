@@ -320,9 +320,10 @@ class ExternalApiService
 
         return $this->fetch($cacheKey, function () use ($level, $areaCode, $dateDisaster) {
             $isConsole = app()->runningInConsole();
-            $timeout = $isConsole ? 300 : 50; // CLI รันได้ 5 นาที, ส่วน Web Server จำกัด 50s ป้องกันโดน Load Balancer 60s ตัด
+            $defaultTimeout = $isConsole ? 300 : 180;
+            $timeout = (int) env('EFARMER_TIMEOUT', $defaultTimeout);
 
-            @set_time_limit($isConsole ? 360 : 60);
+            @set_time_limit($timeout + 60);
 
             $formData = ['level' => $level, 'dateDisaster' => $dateDisaster];
             if ($areaCode) {
