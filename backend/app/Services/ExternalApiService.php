@@ -310,8 +310,8 @@ class ExternalApiService
                 $formData['areaCode'] = $areaCode;
             }
 
-            $response = Http::timeout(60)
-                ->connectTimeout(60)
+            $response = Http::timeout(120)
+                ->connectTimeout(120)
                 ->withHeaders([
                     'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
                     'Accept'     => 'application/json, text/plain, */*',
