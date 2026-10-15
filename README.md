@@ -57,9 +57,9 @@ pdm-project/
 
 ใช้ `docker-compose.yml` **ไฟล์เดียว** ทั้ง local และ production โดยเลือกโหมดจากตัวแปร `COMPOSE_PROFILES` ใน `.env`:
 
-| `COMPOSE_PROFILES` | โหมด | ลักษณะการทำงาน |
-| ------------------ | ---- | --------------- |
-| `local` (default)  | Development | Vite dev server (hot-reload) + **bind-mount** source code → แก้โค้ดแล้วเห็นผลทันที |
+| `COMPOSE_PROFILES` | โหมด        | ลักษณะการทำงาน                                                                               |
+| ------------------ | ----------- | -------------------------------------------------------------------------------------------- |
+| `local` (default)  | Development | Vite dev server (hot-reload) + **bind-mount** source code → แก้โค้ดแล้วเห็นผลทันที           |
 | `production`       | Deployment  | Build static assets → nginx serve + **baked** code ใน image → แก้โค้ดต้อง rebuild image ใหม่ |
 
 ### คำสั่งรันเหมือนกันทั้งสองโหมด
@@ -96,19 +96,19 @@ backend proxies each upstream call, stores the payload in the DB, and the
 frontend reads from the DB only (it never calls upstream directly). If an
 upstream call fails or is slow, the last cached copy from the DB is returned.
 
-| Method | Endpoint                              | Source               | TTL |
-| ------ | ------------------------------------- | -------------------- | --- |
-| GET    | `/api/external/disaster/breakdown`    | eFarmer              | 15m |
-| GET    | `/api/external/rain/today`            | Thai Water           | 5m  |
-| GET    | `/api/external/rain/yesterday`        | Thai Water           | 30m |
-| GET    | `/api/external/rain/24h`              | Thai Water           | 5m  |
-| GET    | `/api/external/rain/3d`               | Thai Water           | 30m |
-| GET    | `/api/external/rain/7d`               | Thai Water           | 60m |
-| GET    | `/api/external/dam-water`             | Thai Water (dam)     | 30m |
-| GET    | `/api/external/temperature-stations`  | TMD (awsnow)         | 15m |
-| GET    | `/api/external/rainfall`              | TMD (awsrainfall)    | 5m  |
-| GET    | `/api/external/weather/forecast?lat&lng`        | Open-Meteo  | 60m |
-| GET    | `/api/external/weather/reverse-geocode?lat&lng` | Nominatim   | 24h |
+| Method | Endpoint                                        | Source            | TTL |
+| ------ | ----------------------------------------------- | ----------------- | --- |
+| GET    | `/api/external/disaster/breakdown`              | eFarmer           | 15m |
+| GET    | `/api/external/rain/today`                      | Thai Water        | 5m  |
+| GET    | `/api/external/rain/yesterday`                  | Thai Water        | 30m |
+| GET    | `/api/external/rain/24h`                        | Thai Water        | 5m  |
+| GET    | `/api/external/rain/3d`                         | Thai Water        | 30m |
+| GET    | `/api/external/rain/7d`                         | Thai Water        | 60m |
+| GET    | `/api/external/dam-water`                       | Thai Water (dam)  | 30m |
+| GET    | `/api/external/temperature-stations`            | TMD (awsnow)      | 15m |
+| GET    | `/api/external/rainfall`                        | TMD (awsrainfall) | 5m  |
+| GET    | `/api/external/weather/forecast?lat&lng`        | Open-Meteo        | 60m |
+| GET    | `/api/external/weather/reverse-geocode?lat&lng` | Nominatim         | 24h |
 
 To fetch every source immediately (e.g. via cron) and persist into the DB:
 
@@ -206,22 +206,22 @@ cp backend/.env.production backend/.env.production.local
 
 แก้ไขค่าที่สำคัญใน `backend/.env` (หรือ `backend/.env.production.local` แล้วลิงก์):
 
-| ตัวแปร | คำอธิบาย |
-| ------ | -------- |
-| `APP_URL` | URL จริงของ backend (เช่น `https://api.example.com`) |
-| `APP_KEY` | ควรใส่ค่า `APP_KEY` ที่คงที่ (รัน `php artisan key:generate --show` ใน container แล้วนำมาใส่) เพื่อให้ key ไม่เปลี่ยนทุกครั้งที่ recreate container |
-| `DB_PASSWORD` | รหัสผ่าน Oracle DB จริง |
-| `SANCTUM_STATEFUL_DOMAINS` | domain ของ frontend (เช่น `example.com`) |
-| `FRONTEND_URL` | URL จริงของ frontend (เช่น `https://example.com`) |
+| ตัวแปร                     | คำอธิบาย                                                                                                                                            |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_URL`                  | URL จริงของ backend (เช่น `https://api.example.com`)                                                                                                |
+| `APP_KEY`                  | ควรใส่ค่า `APP_KEY` ที่คงที่ (รัน `php artisan key:generate --show` ใน container แล้วนำมาใส่) เพื่อให้ key ไม่เปลี่ยนทุกครั้งที่ recreate container |
+| `DB_PASSWORD`              | รหัสผ่าน Oracle DB จริง                                                                                                                             |
+| `SANCTUM_STATEFUL_DOMAINS` | domain ของ frontend (เช่น `example.com`)                                                                                                            |
+| `FRONTEND_URL`             | URL จริงของ frontend (เช่น `https://example.com`)                                                                                                   |
 
 และแก้ไขใน `.env` (ซึ่งมาจาก `.env.production`):
 
-| ตัวแปร | คำอธิบาย |
-| ------ | -------- |
-| `COMPOSE_PROFILES` | ต้องเป็น `production` (ตั้งไว้แล้วใน `.env.production`) |
-| `VITE_API_BASE_URL` | URL ของ backend API ที่ frontend จะเรียก (เช่น `https://api.example.com/api`) |
-| `VITE_API_ENABLED` | เปิด/ปิดการเรียก API ทั้งหมดของ frontend (`true` เปิด, `false` ปิด; ค่าเริ่มต้น `true`) |
-| `ORACLE_ARCH` | `arm64` หรือ `amd64` ตาม CPU ของ production server |
+| ตัวแปร              | คำอธิบาย                                                                                |
+| ------------------- | --------------------------------------------------------------------------------------- |
+| `COMPOSE_PROFILES`  | ต้องเป็น `production` (ตั้งไว้แล้วใน `.env.production`)                                 |
+| `VITE_API_BASE_URL` | URL ของ backend API ที่ frontend จะเรียก (เช่น `https://api.example.com/api`)           |
+| `VITE_API_ENABLED`  | เปิด/ปิดการเรียก API ทั้งหมดของ frontend (`true` เปิด, `false` ปิด; ค่าเริ่มต้น `true`) |
+| `ORACLE_ARCH`       | `arm64` หรือ `amd64` ตาม CPU ของ production server                                      |
 
 ### 2. Build และรัน (production) — คำสั่งเดียวกันกับ local
 
@@ -235,6 +235,7 @@ docker compose up -d --build
 - Backend API: <http://localhost:80/api/dashboard/summary> (ผ่าน frontend nginx proxy)
 
 > **หมายเหตุ production**:
+>
 > - `docker-compose.yml` ในโหมด production **ไม่ bind-mount** source code —
 >   โค้ดถูก `COPY` เข้า image ตอน build ดังนั้นการแก้ไขโค้ดต้อง **rebuild image ใหม่**
 > - Frontend ถูก build เป็น static assets แล้ว serve ด้วย nginx (ไม่ใช่ Vite dev server)
@@ -250,9 +251,9 @@ docker compose up -d --build
 
 ### ตัวแปรใหม่ (ใน `.env.production.example`)
 
-| ตัวแปร | คำอธิบาย |
-| ------ | -------- |
-| `IMAGE_TAG` | เวอร์ชันของ image เช่น `v1.2.3`, `sha-abc1234` (default: `latest`) |
+| ตัวแปร           | คำอธิบาย                                                                                                               |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `IMAGE_TAG`      | เวอร์ชันของ image เช่น `v1.2.3`, `sha-abc1234` (default: `latest`)                                                     |
 | `IMAGE_REGISTRY` | prefix ของ registry เช่น `ghcr.io/keradach/` หรือ `10.2.34.10:5000/` (ต้องลงท้าย `/`, ปล่อยว่าง = ใช้ image ในเครื่อง) |
 
 ### Flow แนะนำ (พร้อม rollback)
@@ -277,6 +278,7 @@ docker compose -f docker-compose.prod.yml up -d --no-build
 ```
 
 > **ข้อควรรู้**:
+>
 > - `docker-compose.prod.yml` ใช้ `${IMAGE_TAG:-latest}` — ถ้าไม่ตั้งอะไรจะรันเป็น `latest` เหมือนเดิม
 > - `scheduler` ใช้ image เดียวกับ `backend` tag เดียวกันเสมอ
 > - ถ้า deploy บนเครื่องที่ไม่มี registry (localhost) ให้ใช้ `./scripts/build-prod-images.sh` ด้วย
@@ -296,23 +298,26 @@ Result: `ghcr.io/<owner>/pdm-backend:v1.2.3` / `pdm-frontend:v1.2.3` (+ tag `:la
 
 **เปิดใช้ครั้งแรก** ต้องตั้งค่าให้ repo อ่าน/เขียน GHCR ได้ (ปกติ GITHUB_TOKEN ทำได้อยู่แล้ว ถ้าเป็น org และ
 repo เป็น private ให้ไปที่ **Settings → Actions → General → Workflow permissions** เลือก
-*Read and write permissions*) จากนั้นบน server ตั้งใน `.env`:
+_Read and write permissions_) จากนั้นบน server ตั้งใน `.env`:
 
 ```bash
 IMAGE_REGISTRY=ghcr.io/<owner>/
 ```
 
 แล้ว deploy/rollback ตามเดิม:
+
 ```bash
 IMAGE_TAG=v1.2.3 ./scripts/deploy-prod.sh     # deploy
 IMAGE_TAG=v1.1.0 ./scripts/deploy-prod.sh     # rollback
 ```
 
 **Manual build** (ไม่ต้อง push tag): **Actions → "Build & Push Images" → Run workflow**
+
 - `image_tag` ว่าง = tag เป็น `sha-<commit>` โดยอัตโนมัติ
 - `update_latest` ตั้งเป็น `false` ได้ ถ้าไม่อยากให้แตะ tag `:latest`
 
 > **งานภายในของ workflow** (อยู่ใน `.github/workflows/build-images.yml`):
+>
 > - อ่านชื่อ image / build args จาก `docker-compose.prod.yml` โดยตรง (ผ่าน `docker buildx bake`)
 >   จึงไม่ต้อง duplicate ค่าต่าง ๆ — แก้ compose ที่เดียวจบ
 > - บังคับ `ORACLE_ARCH=x86_64` ตรงกันกับ GitHub-hosted runner
@@ -340,6 +345,7 @@ docker compose up -d --build
 ```
 
 > วิธีนี้เหมาะทดสอบ production behaviour บนเครื่อง dev ได้ โดย
+>
 > - ใช้ `COMPOSE_PROFILES` environment variable override ค่าใน `.env` ชั่วคราว
 > - แต่อย่าลืมว่า `oracle-data` volume ถูกแชร์ร่วมกันทั้งสองโหมด (ข้อมูลจะอยู่ด้วยกัน)
 
@@ -365,7 +371,8 @@ composer update --ignore-platform-req=ext-oci8
 composer outdated
 ```
 
-> **หมายเหตุ**: 
+> **หมายเหตุ**:
+>
 > - ในโหมด **local** `backend/` ถูก bind-mount เข้า container (`./backend:/var/www`)
 >   ดังนั้นการแก้ไขโค้ดหรือ composer dependencies บน host จะมีผลทันที
 >   โดยไม่ต้อง rebuild image ใหม่ (ยกเว้นแก้ Dockerfile เอง)
@@ -421,16 +428,16 @@ npm run dev          # http://localhost:5173
 
 ## ข้อแตกต่างระหว่างโหมด local กับ production (สรุป)
 
-| ประเด็น | Local | Production |
-| ------- | ----- | ---------- |
-| Frontend | Vite dev server (HMR) | Build static → nginx serve |
-| Backend source | Bind-mount (`./backend:/var/www`) | Baked ใน image (`COPY`) |
-| แก้โค้ดแล้วเห็นผล | ทันที (HMR / PHP reload) | ต้อง rebuild image |
-| `COMPOSE_PROFILES` | `local` | `production` |
-| Port web | `5173` (Vite) | `80` (nginx) |
-| `APP_ENV` | `local` | `production` |
-| `APP_DEBUG` | `true` | `false` |
-| env_file backend | `./backend/.env` | `./backend/.env` (override APP_ENV/APP_DEBUG) |
+| ประเด็น            | Local                             | Production                                    |
+| ------------------ | --------------------------------- | --------------------------------------------- |
+| Frontend           | Vite dev server (HMR)             | Build static → nginx serve                    |
+| Backend source     | Bind-mount (`./backend:/var/www`) | Baked ใน image (`COPY`)                       |
+| แก้โค้ดแล้วเห็นผล  | ทันที (HMR / PHP reload)          | ต้อง rebuild image                            |
+| `COMPOSE_PROFILES` | `local`                           | `production`                                  |
+| Port web           | `5173` (Vite)                     | `80` (nginx)                                  |
+| `APP_ENV`          | `local`                           | `production`                                  |
+| `APP_DEBUG`        | `true`                            | `false`                                       |
+| env_file backend   | `./backend/.env`                  | `./backend/.env` (override APP_ENV/APP_DEBUG) |
 
 ---
 
