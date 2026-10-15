@@ -320,6 +320,7 @@ IMAGE_TAG=v1.1.0 ./scripts/deploy-prod.sh     # rollback
 >
 > - อ่านชื่อ image / build args จาก `docker-compose.prod.yml` โดยตรง (ผ่าน `docker buildx bake`)
 >   จึงไม่ต้อง duplicate ค่าต่าง ๆ — แก้ compose ที่เดียวจบ
+> - สร้าง `.env` ว่างบน runner เมื่อไม่มีไฟล์ เพื่อให้ Bake โหลด `env_file` ใน Compose ได้
 > - บังคับ `ORACLE_ARCH=x86_64` ตรงกันกับ GitHub-hosted runner
 > - ใช้ GHA cache (type=gha) ลดเวลา rebuild ใน tag ถัดไป
 > - ข้อควรระวัง: build บน runner เป็น amd64 (x86_64) — ถ้าต้อง arm64 image ให้เพิ่ม `platforms` + self-hosted runner

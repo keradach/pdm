@@ -77,6 +77,9 @@ jobs:
       # (ใช้ GHA cache ลดเวลารีโหลด Oracle RPM / composer install ในรอบถัดไป)
       - name: Build & push images (bake from compose)
         run: |
+          # Bake validates service env_file paths while loading Compose, even
+          # though these images only need build-time args from workflow env.
+          if [ ! -f .env ]; then touch .env; fi
           docker buildx bake \
             -f docker-compose.prod.yml \
             --provenance false \
