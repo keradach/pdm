@@ -29,7 +29,7 @@ pdm-project/
 │   ├── Dockerfile              # build PHP-FPM + oci8 (Oracle) — ไม่มี composer steps
 │   ├── .env                    # ค่า env ของ Laravel (local)
 │   ├── .env.production         # ค่า env ของ Laravel (production)
-│   ├── docker/entrypoint.sh    # รอ DB พร้อม -> migrate -> seed -> start php-fpm
+│   ├── docker/entrypoint.sh    # รอ DB พร้อม -> (migrate/seed ถ้า env เปิด) -> start php-fpm
 │   ├── composer.json / composer.lock  # จัดการ dependencies บน host
 │   ├── vendor/                 # dependencies ที่ติดตั้งบน host (bind-mount เข้า container)
 │   ├── app/                    # โค้ด Laravel (controllers, models, ...)
@@ -181,7 +181,7 @@ docker compose up -d --build
 
 ### 4. รอจน Oracle DB พร้อม (healthcheck) แล้ว backend container จะรัน
 
-migration + seeder อัตโนมัติผ่าน `entrypoint.sh`
+migration และ seeder จะรันอัตโนมัติผ่าน `entrypoint.sh` **เฉพาะเมื่อ** ตั้ง `RUN_MIGRATIONS=true` / `RUN_SEEDER=true` (local dev ตั้งไว้แล้ว ดู `.env`) — production ควรเป็น `false` แล้วรัน manual ตามรอบ release
 
 ### 5. เปิดใช้งาน (local):
 

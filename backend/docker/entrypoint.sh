@@ -17,11 +17,26 @@ if [ -z "${APP_KEY:-}" ]; then
   export APP_KEY="$(grep "^APP_KEY=" .env | cut -d= -f2-)"
 fi
 
-echo "[entrypoint] Running migrations..."
-php artisan migrate --force
+# Run migrations ONLY when explicitly enabled (RUN_MIGRATIONS=true).
+# Production ควรตั้ง RUN_MIGRATIONS=false แล้วรัน manual ตามช่วง release:
+#   docker compose exec backend php artisan migrate --force
+# เพื่อควบคุมการเปลี่ยน schema ตอน deploy / rollback ไม่ให้เกิดอัตโนมัติทุกครั้งที่ container เริ่มใหม่
+if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+  echo "[entrypoint] Running migrations..."
+  php artisan migrate --force
+else
+  echo "[entrypoint] Skipping migrations (RUN_MIGRATIONS != true)."
+  echo "[entrypoint]   รัน manual ได้ด้วย: docker compose exec backend php artisan migrate --force"
+fi
 
-echo "[entrypoint] Seeding demo data (safe to re-run)..."
-php artisan db:seed --class=DashboardSeeder --force || true
+# Seed only when explicitly enabled (RUN_SEEDER=true). Production ควรเป็น false.
+if [ "${RUN_SEEDER:-false}" = "true" ]; then
+  echo "[entrypoint] Seeding demo data (safe to re-run)..."
+  php artisan db:seed --class=DashboardSeeder --force || true
+else
+  echo "[entrypoint] Skipping seeder (RUN_SEEDER != true)."
+  echo "[entrypoint]   รัน manual ได้ด้วย: docker compose exec backend php artisan db:seed --class=DashboardSeeder --force"
+fi
 
 echo "[entrypoint] Caching config/routes..."
 php artisan config:cache
