@@ -243,6 +243,84 @@ docker compose up -d --build
 
 ---
 
+## 3.x การ deploy แบบ versioned images (แนะนำสำหรับ production)
+
+> ปกติ `docker compose up -d --build` จะติดตั้งเฉพาะ `:latest` ซึ่ง rollback ไม่ได้
+> ส่วนนี้เพิ่มการ tag เวอร์ชันให้ image เพื่อให้ deploy reproducible และ rollback ได้จริง
+
+### ตัวแปรใหม่ (ใน `.env.production.example`)
+
+| ตัวแปร | คำอธิบาย |
+| ------ | -------- |
+| `IMAGE_TAG` | เวอร์ชันของ image เช่น `v1.2.3`, `sha-abc1234` (default: `latest`) |
+| `IMAGE_REGISTRY` | prefix ของ registry เช่น `ghcr.io/keradach/` หรือ `10.2.34.10:5000/` (ต้องลงท้าย `/`, ปล่อยว่าง = ใช้ image ในเครื่อง) |
+
+### Flow แนะนำ (พร้อม rollback)
+
+```bash
+# 1) บนเครื่อง dev / CI — build + tag + push ขึ้น registry ด้วยเวอร์ชันอัตโนมัติ
+#    tag ที่ใช้: argument > VERSION env > git tag v* > short sha
+./scripts/build-prod-images.sh v1.2.3
+# ถ้าใช้ private registry:
+IMAGE_REGISTRY=ghcr.io/keradach/ ./scripts/build-prod-images.sh v1.2.3
+# build อย่างเดียวไม่ push (ทดสอบบนเครื่อง):
+IMAGE_REGISTRY=ghcr.io/keradach/ PUSH=false ./scripts/build-prod-images.sh v1.2.3
+
+# 2) บน production server — pull + ใช้ image ตาม tag (ไม่ rebuild)
+IMAGE_TAG=v1.2.3 ./scripts/deploy-prod.sh
+
+# 3) Rollback — deploy กลับไปเวอร์ชันก่อนหน้าที่ push ไว้แล้ว
+IMAGE_TAG=v1.1.0 ./scripts/deploy-prod.sh
+
+# 4) ทดสอบ manual บนเครื่องเองก็ได้ (ยัง push ไม่ก็ได้)
+docker compose -f docker-compose.prod.yml up -d --no-build
+```
+
+> **ข้อควรรู้**:
+> - `docker-compose.prod.yml` ใช้ `${IMAGE_TAG:-latest}` — ถ้าไม่ตั้งอะไรจะรันเป็น `latest` เหมือนเดิม
+> - `scheduler` ใช้ image เดียวกับ `backend` tag เดียวกันเสมอ
+> - ถ้า deploy บนเครื่องที่ไม่มี registry (localhost) ให้ใช้ `./scripts/build-prod-images.sh` ด้วย
+>   `PUSH=false` ได้เลย — ระบบจะหันไปใช้ image ที่ build ไว้ในเครื่อง
+> - การทำ version ใน git (tag `v*`) ช่วยให้เลือกเวอร์ชันได้ตรงและ trace ได้ถึง commit
+
+### 3.x.1 Build / Push อัตโนมัติด้วย GitHub Actions (ghcr.io)
+
+งาน build/tag/push ให้อัตโนมัติเมื่อ **push git tag ที่ขึ้นต้น `v*`** (เช่น `v1.2.3`):
+
+```bash
+git tag v1.2.3
+git push origin v1.2.3          # workflow ทำงาน: build + push ขึ้น ghcr.io
+```
+
+Result: `ghcr.io/<owner>/pdm-backend:v1.2.3` / `pdm-frontend:v1.2.3` (+ tag `:latest`)
+
+**เปิดใช้ครั้งแรก** ต้องตั้งค่าให้ repo อ่าน/เขียน GHCR ได้ (ปกติ GITHUB_TOKEN ทำได้อยู่แล้ว ถ้าเป็น org และ
+repo เป็น private ให้ไปที่ **Settings → Actions → General → Workflow permissions** เลือก
+*Read and write permissions*) จากนั้นบน server ตั้งใน `.env`:
+
+```bash
+IMAGE_REGISTRY=ghcr.io/<owner>/
+```
+
+แล้ว deploy/rollback ตามเดิม:
+```bash
+IMAGE_TAG=v1.2.3 ./scripts/deploy-prod.sh     # deploy
+IMAGE_TAG=v1.1.0 ./scripts/deploy-prod.sh     # rollback
+```
+
+**Manual build** (ไม่ต้อง push tag): **Actions → "Build & Push Images" → Run workflow**
+- `image_tag` ว่าง = tag เป็น `sha-<commit>` โดยอัตโนมัติ
+- `update_latest` ตั้งเป็น `false` ได้ ถ้าไม่อยากให้แตะ tag `:latest`
+
+> **งานภายในของ workflow** (อยู่ใน `.github/workflows/build-images.yml`):
+> - อ่านชื่อ image / build args จาก `docker-compose.prod.yml` โดยตรง (ผ่าน `docker buildx bake`)
+>   จึงไม่ต้อง duplicate ค่าต่าง ๆ — แก้ compose ที่เดียวจบ
+> - บังคับ `ORACLE_ARCH=x86_64` ตรงกันกับ GitHub-hosted runner
+> - ใช้ GHA cache (type=gha) ลดเวลา rebuild ใน tag ถัดไป
+> - ข้อควรระวัง: build บน runner เป็น amd64 (x86_64) — ถ้าต้อง arm64 image ให้เพิ่ม `platforms` + self-hosted runner
+
+---
+
 ## ตัวอย่างการสลับโหมดอย่างรวดเร็วบนเครื่องเดียวกัน
 
 ```bash

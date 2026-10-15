@@ -16,7 +16,9 @@
 
 services:
   # ----------------------------------------------------------------------------
-  # Laravel Backend (PHP-FPM) - Baked Image
+  # Laravel Backend (PHP-FPM) - Baked Image (versioned tag)
+  #   IMAGE_TAG        = version tag (default: latest)  e.g. v1.2.3, sha-abc1234
+  #   IMAGE_REGISTRY   = optional registry prefix       e.g. "ghcr.io/keradach/"
   # ----------------------------------------------------------------------------
   backend:
     build:
@@ -27,7 +29,7 @@ services:
         ORACLE_ARCH: ${ORACLE_ARCH:-x86_64}
         ORACLE_INSTANTCLIENT_VERSION: ${ORACLE_INSTANTCLIENT_VERSION:-23.26.3.0.0}
         ORACLE_INSTANTCLIENT_ROOT: ${ORACLE_INSTANTCLIENT_ROOT:-2326300}
-    image: pdm-backend:latest
+    image: ${IMAGE_REGISTRY:-}pdm-backend:${IMAGE_TAG:-latest}
     container_name: pdm-backend
     restart: unless-stopped
     env_file:
@@ -65,7 +67,7 @@ services:
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         VITE_API_ENABLED: ${VITE_API_ENABLED:-true}
-    image: pdm-frontend:latest
+    image: ${IMAGE_REGISTRY:-}pdm-frontend:${IMAGE_TAG:-latest}
     container_name: pdm-frontend
     restart: unless-stopped
     depends_on:
@@ -77,9 +79,10 @@ services:
 
   # ----------------------------------------------------------------------------
   # Laravel Scheduler (Automates scheduled tasks via schedule:work)
+  # ใช้ image เดียวกับ backend (versioned tag เดียวกัน)
   # ----------------------------------------------------------------------------
   scheduler:
-    image: pdm-backend:latest
+    image: ${IMAGE_REGISTRY:-}pdm-backend:${IMAGE_TAG:-latest}
     container_name: pdm-scheduler
     restart: unless-stopped
     command: php artisan schedule:work
