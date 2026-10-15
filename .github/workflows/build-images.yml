@@ -89,18 +89,27 @@ jobs:
             --set frontend.cache-from=type=gha \
             --set frontend.cache-to=type=gha,mode=max
           echo "Pushed:"
-          docker images "${IMAGE_REGISTRY}pdm-*" --format '  {{.Repository}}:{{.Tag}}' | sort -u
+          echo "  ${IMAGE_REGISTRY}pdm-backend:${IMAGE_TAG}"
+          echo "  ${IMAGE_REGISTRY}pdm-frontend:${IMAGE_TAG}"
 
-      # อัปเดต tag :latest (เหมือน TAG_LATEST ใน scripts/build-prod-images.sh)
+      # อัปเดต tag :latest ใน registry โดยตรง (Bake --push ไม่ได้โหลด image เข้า local daemon)
       - name: Update :latest tags
         if: ${{ github.event.inputs.update_latest != 'false' }}
         run: |
-          for img in pdm-backend pdm-frontend; do
-            docker tag "${IMAGE_REGISTRY}${img}:${IMAGE_TAG}" "${IMAGE_REGISTRY}${img}:latest"
-            docker push "${IMAGE_REGISTRY}${img}:latest"
-          done
+          if [ "${IMAGE_TAG}" != "latest" ]; then
+            for img in pdm-backend pdm-frontend; do
+              docker buildx imagetools create \
+                --tag "${IMAGE_REGISTRY}${img}:latest" \
+                "${IMAGE_REGISTRY}${img}:${IMAGE_TAG}"
+            done
+          fi
 
       - name: Show final image tags
         run: |
           echo "Released images (IMAGE_TAG=${IMAGE_TAG}):"
-          docker images "${IMAGE_REGISTRY}pdm-*" --format '  {{.Repository}}:{{.Tag}}' | sort -u
+          echo "  ${IMAGE_REGISTRY}pdm-backend:${IMAGE_TAG}"
+          echo "  ${IMAGE_REGISTRY}pdm-frontend:${IMAGE_TAG}"
+          if [ "${{ github.event.inputs.update_latest }}" != "false" ]; then
+            echo "  ${IMAGE_REGISTRY}pdm-backend:latest"
+            echo "  ${IMAGE_REGISTRY}pdm-frontend:latest"
+          fi
