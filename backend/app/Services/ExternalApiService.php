@@ -242,6 +242,47 @@ class ExternalApiService
         return $this->fetch('efarmer:disaster/breakdown', fn() => $this->httpGet($url, 30), 14400, $force); // แคช 4 ชั่วโมง
     }
 
+    /**
+     * สรุปการให้ความช่วยเหลือผู้ประสบภัยด้านพืชตามช่วงเวลาและพื้นที่
+     *
+     * @param array<string, mixed> $filters
+     */
+    public function disasterSubsidy(array $filters, bool $force = false): mixed
+    {
+        $filterNames = [
+            'date_from',
+            'date_to',
+            'danger_type_id',
+            'danger_type_name',
+            'province_code',
+            'amphur_code',
+            'tambon_code',
+        ];
+        $filters = array_replace(array_fill_keys($filterNames, null), $filters);
+        $cacheKey = 'efarmer:disaster/subsidy:' . hash(
+            'sha256',
+            json_encode($filters, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
+
+        return $this->fetch($cacheKey, function () use ($filters) {
+            $response = Http::timeout(30)
+                ->connectTimeout(15)
+                ->withHeaders([
+                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                    'Accept' => 'application/json, text/plain, */*',
+                ])
+                ->asJson()
+                ->withoutVerifying()
+                ->post('https://efarmer.doae.go.th/api/disaster/subsidy', $filters);
+
+            if (!$response->successful()) {
+                throw new \Exception("efarmer:disaster/subsidy returned HTTP {$response->status()}");
+            }
+
+            return $response->json();
+        }, 14400, $force);
+    }
+
     // ------------------------------------------------------------------
     // TMD (Thailand Meteorological Department)
     // ------------------------------------------------------------------

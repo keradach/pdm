@@ -34,6 +34,8 @@ Route::prefix('reports')->group(function () {
 
 Route::get('/alerts', [AlertController::class, 'active']);
 
+Route::post('/disaster/subsidy', [ExternalApiController::class, 'disasterSubsidy']);
+
 /*
 |--------------------------------------------------------------------------
 | Third-party API proxies (responses cached into the `api_caches` table).

@@ -41,6 +41,8 @@ export default {
   getTrend: () => api.get("/reports/trend").then((r) => r.data),
   getBreakdown: () =>
     api.get("/external/disaster/breakdown").then((r) => r.data),
+  getDisasterSubsidy: (filters) =>
+    api.post("/disaster/subsidy", filters).then((r) => r.data),
   getAlerts: () => api.get("/alerts").then((r) => r.data),
 
   // ---- Third-party APIs (proxied via the Laravel backend, cached in DB) ----

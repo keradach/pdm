@@ -87,6 +87,7 @@ docker compose up -d --build
 | GET    | `/api/reports/trend`         | แนวโน้มพื้นที่เสียหายรายเดือน                              |
 | GET    | `/api/reports/breakdown`     | สัดส่วนประเภทภัยพิบัติ                                     |
 | GET    | `/api/alerts`                | ประกาศแจ้งเตือนที่ active อยู่ (แบนเนอร์สีแดง)             |
+| POST   | `/api/disaster/subsidy`      | สรุปการช่วยเหลือผู้ประสบภัยด้านพืช แยกตามช่วงเวลา/พื้นที่ |
 
 #### Third-party API endpoints (responses cached into the DB)
 
@@ -109,6 +110,23 @@ upstream call fails or is slow, the last cached copy from the DB is returned.
 | GET    | `/api/external/rainfall`                        | TMD (awsrainfall) | 5m  |
 | GET    | `/api/external/weather/forecast?lat&lng`        | Open-Meteo        | 60m |
 | GET    | `/api/external/weather/reverse-geocode?lat&lng` | Nominatim         | 24h |
+
+ตัวอย่างเรียกข้อมูลการช่วยเหลือผู้ประสบภัยด้านพืช โดย filter พื้นที่เป็น optional:
+
+```json
+{
+  "date_from": "2026-01",
+  "date_to": "2026-12",
+  "danger_type_id": null,
+  "danger_type_name": null,
+  "province_code": null,
+  "amphur_code": null,
+  "tambon_code": null
+}
+```
+
+API นี้ proxy ไปยัง eFarmer และ cache แยกตามชุด filter เป็นเวลา 4 ชั่วโมง
+ส่วน Dashboard จะแสดงตัวเลขสรุปและรายละเอียดตามกลุ่มพืชใต้แผนที่
 
 To fetch every source immediately (e.g. via cron) and persist into the DB:
 
@@ -256,62 +274,106 @@ docker compose up -d --build
 | `IMAGE_TAG`      | เวอร์ชันของ image เช่น `v1.2.3`, `sha-abc1234` (default: `latest`)                                                     |
 | `IMAGE_REGISTRY` | prefix ของ registry เช่น `ghcr.io/keradach/` หรือ `10.2.34.10:5000/` (ต้องลงท้าย `/`, ปล่อยว่าง = ใช้ image ในเครื่อง) |
 
-### Flow แนะนำ (พร้อม rollback)
+### ขั้นตอน deploy เมื่อมีการปรับโค้ด
+
+ตัวอย่างนี้ใช้ `v1.0.4` เป็น release ใหม่ (เปลี่ยนเป็น version ถัดไปจริงทุกครั้ง)
+และใช้ GitHub Actions สร้าง/push image ไป GHCR อัตโนมัติเมื่อ push Git tag `v*`.
+อย่านำคำสั่ง shell เช่น `IMAGE_TAG=v1.0.4 ./scripts/deploy-prod.sh` ไปใส่ใน `.env`;
+ใน `.env` ให้ใส่เฉพาะค่า เช่น `IMAGE_TAG=v1.0.4`.
+
+#### 1. ฝั่ง developer — commit โค้ดและสร้าง release tag
+
+รันจาก root ของ repository หลังแก้โค้ดและทดสอบแล้ว:
 
 ```bash
-# 1) บนเครื่อง dev / CI — build + tag + push ขึ้น registry ด้วยเวอร์ชันอัตโนมัติ
-#    tag ที่ใช้: argument > VERSION env > git tag v* > short sha
-./scripts/build-prod-images.sh v1.2.3
-# ถ้าใช้ private registry:
-IMAGE_REGISTRY=ghcr.io/keradach/ ./scripts/build-prod-images.sh v1.2.3
-# build อย่างเดียวไม่ push (ทดสอบบนเครื่อง):
-IMAGE_REGISTRY=ghcr.io/keradach/ PUSH=false ./scripts/build-prod-images.sh v1.2.3
+git status
+git add <ไฟล์ที่แก้>
+git commit -m "Describe the production change"
+git push origin <branch>
 
-# 2) บน production server — pull + ใช้ image ตาม tag (ไม่ rebuild)
-IMAGE_TAG=v1.2.3 ./scripts/deploy-prod.sh
+# สร้าง tag บน commit ที่ push แล้ว เพื่อเริ่ม workflow build/push images
+git tag -a v1.0.4 -m "Release v1.0.4"
+git push origin v1.0.4
+```
 
-# 3) Rollback — deploy กลับไปเวอร์ชันก่อนหน้าที่ push ไว้แล้ว
-IMAGE_TAG=v1.1.0 ./scripts/deploy-prod.sh
+รอให้ GitHub Actions **Build & Push Images** ของ tag `v1.0.4` สำเร็จ ก่อน deploy.
+อย่าใช้ tag ที่เคยปล่อยไปแล้วซ้ำ; ใช้ version ใหม่สำหรับทุก release.
 
-# 4) ทดสอบ manual บนเครื่องเองก็ได้ (ยัง push ไม่ก็ได้)
-docker compose -f docker-compose.prod.yml up -d --no-build
+#### 2. ฝั่ง production — pull image และเริ่มบริการ
+
+ใน `.env` บน production server ให้ตั้ง registry prefix (ต้องมี `/` ท้ายค่า):
+
+```env
+IMAGE_REGISTRY=ghcr.io/keradach/
+```
+
+หาก GHCR package เป็น private ให้ login ก่อน (ใช้ GitHub token/PAT ที่มี `read:packages`;
+Docker จะถาม token แบบ interactive อย่าใส่ token ลงใน command หรือ commit ลง `.env`):
+
+```bash
+docker login ghcr.io -u <github-username>
+```
+
+จาก root ของ repository บน server ให้ดึงไฟล์ deploy/config ล่าสุดตาม branch ที่ใช้งาน
+(ถ้า checkout ไว้แล้วและ branch ตั้ง upstream ถูกต้อง):
+
+```bash
+git pull --ff-only
+```
+
+จากนั้น deploy tag ที่ build สำเร็จ:
+
+```bash
+IMAGE_TAG=v1.0.4 ./scripts/deploy-prod.sh
+```
+
+สคริปต์นี้รัน `docker compose pull` แล้วตามด้วย `docker compose up -d --no-build --remove-orphans`.
+ตรวจสอบสถานะและ log:
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+docker compose -f docker-compose.prod.yml logs --tail=100 backend backend-nginx frontend scheduler
+```
+
+หาก release นี้มี database migration ให้รันตามแผน release หลัง deploy:
+
+```bash
+docker compose -f docker-compose.prod.yml exec backend php artisan migrate --force
+```
+
+#### 3. Rollback
+
+หากต้องย้อนกลับ ให้เลือก tag ก่อนหน้าที่ยังมี image อยู่ใน GHCR แล้วสั่งบน production server:
+
+```bash
+IMAGE_TAG=v1.0.3 ./scripts/deploy-prod.sh
 ```
 
 > **ข้อควรรู้**:
 >
-> - `docker-compose.prod.yml` ใช้ `${IMAGE_TAG:-latest}` — ถ้าไม่ตั้งอะไรจะรันเป็น `latest` เหมือนเดิม
-> - `scheduler` ใช้ image เดียวกับ `backend` tag เดียวกันเสมอ
-> - ถ้า deploy บนเครื่องที่ไม่มี registry (localhost) ให้ใช้ `./scripts/build-prod-images.sh` ด้วย
->   `PUSH=false` ได้เลย — ระบบจะหันไปใช้ image ที่ build ไว้ในเครื่อง
-> - การทำ version ใน git (tag `v*`) ช่วยให้เลือกเวอร์ชันได้ตรงและ trace ได้ถึง commit
+> - `IMAGE_TAG` ที่ใส่หน้าคำสั่งเป็น environment variable สำหรับคำสั่งนั้นเท่านั้น
+>   ไม่ใช่ข้อความที่ต้องนำไปรวมต่อท้ายค่า `IMAGE_TAG` ใน `.env`.
+> - `docker compose pull` อย่างเดียวเพียงดาวน์โหลด image; ต้องรัน `up -d --no-build`
+>   ต่อเพื่อให้ container ใช้ image ใหม่ สคริปต์ `deploy-prod.sh` ทำทั้งสองขั้นตอนให้แล้ว.
+> - `docker-compose.prod.yml` ใช้ `${IMAGE_TAG:-latest}` เมื่อไม่ได้ระบุ tag.
+> - `scheduler` ใช้ image backend tag เดียวกันเสมอ.
+> - `VITE_API_BASE_URL` และ `VITE_API_ENABLED` ถูกฝังใน frontend image ตอน build;
+>   หากเปลี่ยนค่าเหล่านี้ ต้อง build release image ใหม่.
 
-### 3.x.1 Build / Push อัตโนมัติด้วย GitHub Actions (ghcr.io)
+### 3.x.1 GitHub Actions และการตั้งค่า GHCR
 
-งาน build/tag/push ให้อัตโนมัติเมื่อ **push git tag ที่ขึ้นต้น `v*`** (เช่น `v1.2.3`):
+Workflow `Build & Push Images` เริ่มทำงานเมื่อ push Git tag ที่ขึ้นต้น `v*`
+ตามขั้นตอนด้านบน และ push images ไปที่ `ghcr.io/<owner>/pdm-backend:<tag>` กับ
+`ghcr.io/<owner>/pdm-frontend:<tag>` (พร้อม `:latest` ตามค่าเริ่มต้น).
 
-```bash
-git tag v1.2.3
-git push origin v1.2.3          # workflow ทำงาน: build + push ขึ้น ghcr.io
-```
+**เปิดใช้ครั้งแรก** ตรวจสอบว่า workflow มีสิทธิ์เขียน packages:
+ไปที่ **Settings → Actions → General → Workflow permissions** แล้วเลือก
+_Read and write permissions_ หากจำเป็น. หาก GHCR packages เป็น private ให้ production server
+login ด้วย GitHub token/PAT ที่มี `read:packages` ก่อน deploy.
 
-Result: `ghcr.io/<owner>/pdm-backend:v1.2.3` / `pdm-frontend:v1.2.3` (+ tag `:latest`)
-
-**เปิดใช้ครั้งแรก** ต้องตั้งค่าให้ repo อ่าน/เขียน GHCR ได้ (ปกติ GITHUB_TOKEN ทำได้อยู่แล้ว ถ้าเป็น org และ
-repo เป็น private ให้ไปที่ **Settings → Actions → General → Workflow permissions** เลือก
-_Read and write permissions_) จากนั้นบน server ตั้งใน `.env`:
-
-```bash
-IMAGE_REGISTRY=ghcr.io/<owner>/
-```
-
-แล้ว deploy/rollback ตามเดิม:
-
-```bash
-IMAGE_TAG=v1.2.3 ./scripts/deploy-prod.sh     # deploy
-IMAGE_TAG=v1.1.0 ./scripts/deploy-prod.sh     # rollback
-```
-
-**Manual build** (ไม่ต้อง push tag): **Actions → "Build & Push Images" → Run workflow**
+นอกจากนี้ยังสั่ง build แบบ manual ได้จาก **Actions → "Build & Push Images" → Run workflow**.
+กรอก `image_tag` เพื่อกำหนด tag ที่จะ push; หากเว้นว่าง workflow จะใช้ `sha-<commit>`.
+นำ tag ที่ workflow แสดงว่า build สำเร็จไป deploy ด้วยคำสั่งเดียวกับขั้นตอนด้านบน.
 
 - `image_tag` ว่าง = tag เป็น `sha-<commit>` โดยอัตโนมัติ
 - `update_latest` ตั้งเป็น `false` ได้ ถ้าไม่อยากให้แตะ tag `:latest`

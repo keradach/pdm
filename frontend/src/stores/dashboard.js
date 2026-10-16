@@ -35,6 +35,21 @@ export const useDashboardStore = defineStore("dashboard", {
 
     // --- ใหม่: ปริมาณน้ำฝนเฉลี่ย 24 ชม. (riskmap.doae.go.th) ---
     rainAverageData: [],
+
+    // --- การให้ความช่วยเหลือผู้ประสบภัยด้านพืช ---
+    disasterSubsidyData: null,
+    disasterSubsidyFilters: {
+      date_from: "2026-01",
+      date_to: "2026-12",
+      danger_type_id: null,
+      danger_type_name: null,
+      province_code: null,
+      amphur_code: null,
+      tambon_code: null,
+    },
+    disasterSubsidyLoading: false,
+    disasterSubsidyError: null,
+    disasterSubsidyRequestId: 0,
   }),
 
   actions: {
@@ -101,6 +116,7 @@ export const useDashboardStore = defineStore("dashboard", {
           provinces[0] ||
           null;
         this.fetchNoneProduce();
+        this.fetchDisasterSubsidy();
       } catch (e) {
         // API not reachable yet (e.g. backend still migrating) - keep the
         // page usable with an inline error instead of a blank screen.
@@ -234,6 +250,75 @@ export const useDashboardStore = defineStore("dashboard", {
         this.rainAverageData = result?.data || [];
       } catch (e) {
         console.error("fetchRainAverage error:", e);
+      }
+    },
+
+    async fetchDisasterSubsidy(request = this.disasterSubsidyFilters) {
+      const hasRequestEnvelope =
+        request && typeof request === "object" && "filters" in request;
+      const filters = hasRequestEnvelope ? request.filters : request;
+      const areas = hasRequestEnvelope ? request.areas || [] : [];
+      const level = hasRequestEnvelope ? request.level : null;
+      const requestId = ++this.disasterSubsidyRequestId;
+      this.disasterSubsidyFilters = { ...filters };
+      this.disasterSubsidyLoading = true;
+      this.disasterSubsidyError = null;
+      try {
+        const result = await api.getDisasterSubsidy(this.disasterSubsidyFilters);
+        if (requestId !== this.disasterSubsidyRequestId) return;
+
+        if (areas.length && (level === "district" || level === "subdistrict")) {
+          const rows = [];
+          for (let index = 0; index < areas.length; index += 5) {
+            const batch = areas.slice(index, index + 5);
+            const batchRows = await Promise.all(
+              batch.map(async (area) => {
+                const areaFilters = {
+                  ...this.disasterSubsidyFilters,
+                  ...(level === "district"
+                    ? { amphur_code: area.code, tambon_code: null }
+                    : { tambon_code: area.code }),
+                };
+                const areaResult = await api.getDisasterSubsidy(areaFilters);
+                const areaSummary = areaResult?.summary;
+                if (!areaSummary) {
+                  throw new Error(`ข้อมูลสรุปไม่ครบสำหรับ ${area.name}`);
+                }
+                return {
+                  area_code: area.code,
+                  area_name: area.name,
+                  total_farmer: areaSummary.total_farmer,
+                  damage_rai: areaSummary.damage_rai,
+                  damage_ngan: areaSummary.damage_ngan,
+                  damage_wa: areaSummary.damage_wa,
+                  damage_rai_decimal: areaSummary.damage_rai_decimal,
+                  repair_rai: areaSummary.repair_rai,
+                  repair_ngan: areaSummary.repair_ngan,
+                  repair_wa: areaSummary.repair_wa,
+                  repair_rai_decimal: areaSummary.repair_rai_decimal,
+                  by_plant_group: areaSummary.by_plant_group || [],
+                };
+              }),
+            );
+            if (requestId !== this.disasterSubsidyRequestId) return;
+            rows.push(...batchRows);
+          }
+
+          const breakdownKey =
+            level === "district" ? "by_amphur" : "by_tambon";
+          result.summary[breakdownKey] = rows;
+        }
+
+        this.disasterSubsidyData = result;
+      } catch (e) {
+        if (requestId !== this.disasterSubsidyRequestId) return;
+        this.disasterSubsidyError =
+          "ไม่สามารถโหลดข้อมูลการช่วยเหลือผู้ประสบภัยด้านพืชได้ กรุณาลองใหม่อีกครั้ง";
+        console.error("fetchDisasterSubsidy error:", e);
+      } finally {
+        if (requestId === this.disasterSubsidyRequestId) {
+          this.disasterSubsidyLoading = false;
+        }
       }
     },
   },

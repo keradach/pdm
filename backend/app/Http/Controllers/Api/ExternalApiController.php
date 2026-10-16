@@ -22,6 +22,38 @@ class ExternalApiController extends Controller
         return response()->json($this->external->disasterBreakdown());
     }
 
+    // eFarmer — plant disaster subsidy summary
+    public function disasterSubsidy(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'date_from' => ['required', 'date_format:Y-m'],
+            'date_to' => ['required', 'date_format:Y-m', 'after_or_equal:date_from'],
+            'danger_type_id' => ['nullable', 'integer'],
+            'danger_type_name' => ['nullable', 'string', 'max:255'],
+            'province_code' => ['nullable', 'string', 'max:10'],
+            'amphur_code' => ['nullable', 'string', 'max:10'],
+            'tambon_code' => ['nullable', 'string', 'max:10'],
+        ]);
+
+        foreach ([
+            'danger_type_id',
+            'danger_type_name',
+            'province_code',
+            'amphur_code',
+            'tambon_code',
+        ] as $optionalFilter) {
+            $validated[$optionalFilter] = $validated[$optionalFilter] ?? null;
+        }
+
+        $result = $this->external->disasterSubsidy($validated);
+
+        if (is_array($result) && ($result['result'] ?? null) === 'FAILED') {
+            return response()->json($result, 502);
+        }
+
+        return response()->json($result);
+    }
+
     // Thai Water API
     public function rainToday(Request $request): JsonResponse
     {

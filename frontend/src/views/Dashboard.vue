@@ -14,6 +14,7 @@ import RiskMapCard from '@/components/RiskMapCard.vue'
 import PartnerLogos from '@/components/PartnerLogos.vue'
 import WeatherCard from '@/components/WeatherCard.vue'
 import NoneProduceCard from '@/components/NoneProduceCard.vue'
+import DisasterSubsidyCard from '@/components/DisasterSubsidyCard.vue'
 
 const store = useDashboardStore()
 const riskMapColumn = ref(null)
@@ -42,6 +43,10 @@ const {
   noneProduceSelectedAreaCode,
   noneProduceLoading,
   noneProduceError,
+  disasterSubsidyData,
+  disasterSubsidyFilters,
+  disasterSubsidyLoading,
+  disasterSubsidyError,
   mapView,
   rainfallPeriod,
   rainAveragePeriod,
@@ -78,19 +83,18 @@ onUnmounted(() => riskMapResizeObserver?.disconnect())
     <div class="grid grid-cols-[4fr_2fr] gap-3 items-stretch min-h-0 max-[900px]:grid-cols-1">
       <div ref="riskMapColumn" class="flex min-h-0 flex-col gap-3 min-w-0">
         <RiskMapCard class="w-full min-w-0" :provinces="provinces" :selected-province="selectedProvince"
-          :map-view="mapView" :rainfall-period="rainfallPeriod"
-          :dam-water-data="damWaterData" :temperature-data="temperatureData" :rain-average-data="rainAverageData"
-          :none-produce-data="noneProduceData" :none-produce-level="noneProduceLevel"
-          :none-produce-sum-all="noneProduceSumAll"
+          :map-view="mapView" :rainfall-period="rainfallPeriod" :dam-water-data="damWaterData"
+          :temperature-data="temperatureData" :rain-average-data="rainAverageData" :none-produce-data="noneProduceData"
+          :none-produce-level="noneProduceLevel" :none-produce-sum-all="noneProduceSumAll"
           :none-produce-parent-area-code="noneProduceParentAreaCode"
-          :none-produce-selection-path="noneProduceSelectionPath"
-          :selected-area-code="noneProduceSelectedAreaCode" :rain-average-period="rainAveragePeriod"
-          @select-none-produce-area="store.selectNoneProduceArea($event)"
+          :none-produce-selection-path="noneProduceSelectionPath" :selected-area-code="noneProduceSelectedAreaCode"
+          :rain-average-period="rainAveragePeriod" @select-none-produce-area="store.selectNoneProduceArea($event)"
           @back-none-produce-area="store.goBackNoneProduceArea()"
           @clear-none-produce-area="store.clearNoneProduceArea()"
-          @set-rain-average-period="store.setRainAveragePeriod($event)"
-          @select-province="store.selectProvince($event)"
+          @set-rain-average-period="store.setRainAveragePeriod($event)" @select-province="store.selectProvince($event)"
           @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
+
+
 
         <!-- WeatherCard displayed under RiskMapCard when responsive (<= 900px) -->
         <WeatherCard class="hidden max-[900px]:block" />
@@ -100,16 +104,17 @@ onUnmounted(() => riskMapResizeObserver?.disconnect())
         :style="noneProduceCardHeight ? { height: `${noneProduceCardHeight}px` } : undefined">
         <NoneProduceCard class="w-full min-h-0 min-w-0 flex-1" :data="noneProduceData" :date="noneProduceDate"
           :sum-all="noneProduceSumAll" :parent-area-code="noneProduceParentAreaCode"
-          :selection-path="noneProduceSelectionPath"
-          :rain-average-data="rainAverageData" :level="noneProduceLevel"
+          :selection-path="noneProduceSelectionPath" :rain-average-data="rainAverageData" :level="noneProduceLevel"
           :rain-average-period="rainAveragePeriod" :loading="noneProduceLoading" :error="noneProduceError"
           @update:date="store.setNoneProduceDate($event)" />
         <!-- <DisasterPieChart class="w-full min-w-0" :breakdown="breakdown" /> -->
       </div>
     </div>
-    <!-- <div class="min-w-0">
-      <DisasterTypeCard class="w-full" :provinces="topDamaged" />
-    </div> -->
+    <div class="min-w-0">
+      <DisasterSubsidyCard :data="disasterSubsidyData" :filters="disasterSubsidyFilters"
+        :loading="disasterSubsidyLoading" :error="disasterSubsidyError" @search="store.fetchDisasterSubsidy($event)" />
+      <!-- <DisasterTypeCard class="w-full" :provinces="topDamaged" /> -->
+    </div>
   </section>
 
   <PartnerLogos />
