@@ -81,10 +81,10 @@ Artisan::command('api:test-efarmer', function () {
         }
     }
 
-    $this->line("\nTesting HTTP GET to {$baseUrl}/api/disaster/breakdown...");
+    $this->line("\nTesting HTTP GET to {$baseUrl}/api/farmer/noneProduce...");
     $startTime = microtime(true);
     try {
-        $data = $service->disasterBreakdown(force: true);
+        $data = $service->noneProduce(force: true);
         $duration = round(microtime(true) - $startTime, 2);
         $this->info(" -> Success! Status 200 OK (took {$duration}s)");
         if (is_array($data)) {
@@ -108,4 +108,3 @@ Schedule::command('api:cache --force')
     ->dailyAt('06:00')
     ->withoutOverlapping()
     ->appendOutputTo(storage_path('logs/schedule.log'));
-

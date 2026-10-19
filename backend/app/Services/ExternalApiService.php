@@ -322,7 +322,7 @@ class ExternalApiService
         $url = $this->efarmerBaseUrl() . '/api/disaster/subsidy';
 
         return $this->fetch($cacheKey, function () use ($filters, $url) {
-            $response = $this->buildClient($url, 30, 15)
+            $response = $this->buildClient($url, 60, 30)
                 ->asJson()
                 ->post($url, $filters);
 
