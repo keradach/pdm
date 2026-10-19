@@ -35,4 +35,15 @@ return [
         ],
     ],
 
+    'efarmer' => [
+        'base_url' => env('EFARMER_BASE_URL', 'https://efarmer.doae.go.th'),
+        'resolve_ip' => env('EFARMER_RESOLVE_IP'),
+        'timeout' => env('EFARMER_TIMEOUT', 180),
+    ],
+
+    'riskmap' => [
+        'base_url' => env('RISKMAP_BASE_URL', 'https://riskmap.doae.go.th'),
+        'resolve_ip' => env('RISKMAP_RESOLVE_IP'),
+    ],
+
 ];

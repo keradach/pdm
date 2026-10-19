@@ -36,6 +36,12 @@ services:
       - .env
     volumes:
       - ./.env:/var/www/.env:ro
+    # Optional: หาก Docker container resolve โดเมนภายใน (เช่น efarmer.doae.go.th) ไม่ได้
+    # dns:
+    #   - 10.2.34.1      # DNS ของเครือข่ายภายใน DOAE
+    #   - 8.8.8.8
+    # extra_hosts:
+    #   - "efarmer.doae.go.th:10.x.x.x"  # แมป IP ตรงใน /etc/hosts ของ container
     networks:
       - pdm-net
 
@@ -92,6 +98,12 @@ services:
       - .env
     volumes:
       - ./.env:/var/www/.env:ro
+    # Optional: หาก Docker container resolve โดเมนภายใน (เช่น efarmer.doae.go.th) ไม่ได้
+    # dns:
+    #   - 10.2.34.1      # DNS ของเครือข่ายภายใน DOAE
+    #   - 8.8.8.8
+    # extra_hosts:
+    #   - "efarmer.doae.go.th:10.x.x.x"  # แมป IP ตรงใน /etc/hosts ของ container
     networks:
       - pdm-net
 networks:

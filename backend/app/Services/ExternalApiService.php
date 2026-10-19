@@ -18,18 +18,73 @@ use Illuminate\Support\Facades\Log;
 class ExternalApiService
 {
     /**
+     * Get base URL for eFarmer API.
+     */
+    public function efarmerBaseUrl(): string
+    {
+        return rtrim(config('services.efarmer.base_url', env('EFARMER_BASE_URL', 'https://efarmer.doae.go.th')), '/');
+    }
+
+    /**
+     * Get base URL for Riskmap API.
+     */
+    public function riskmapBaseUrl(): string
+    {
+        return rtrim(config('services.riskmap.base_url', env('RISKMAP_BASE_URL', 'https://riskmap.doae.go.th')), '/');
+    }
+
+    /**
+     * Standardized HTTP client with browser headers, timeout, SSL bypass,
+     * and optional CURLOPT_RESOLVE for domains with internal IP mappings.
+     */
+    public function buildClient(string $url, int $timeout = 60, int $connectTimeout = 15): \Illuminate\Http\Client\PendingRequest
+    {
+        $client = Http::timeout($timeout)
+            ->connectTimeout($connectTimeout)
+            ->withHeaders([
+                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+                'Accept'     => 'application/json, text/plain, */*',
+            ])
+            ->withoutVerifying();
+
+        $parsed = parse_url($url);
+        $host = $parsed['host'] ?? null;
+        $scheme = $parsed['scheme'] ?? 'https';
+        $port = $parsed['port'] ?? ($scheme === 'https' ? 443 : 80);
+
+        $resolveIp = null;
+        if ($host) {
+            $efarmerHost = parse_url($this->efarmerBaseUrl(), PHP_URL_HOST) ?: 'efarmer.doae.go.th';
+            $riskmapHost = parse_url($this->riskmapBaseUrl(), PHP_URL_HOST) ?: 'riskmap.doae.go.th';
+
+            if ($host === $efarmerHost || str_contains($host, 'efarmer.doae.go.th')) {
+                $resolveIp = config('services.efarmer.resolve_ip', env('EFARMER_RESOLVE_IP'));
+            } elseif ($host === $riskmapHost || str_contains($host, 'riskmap.doae.go.th')) {
+                $resolveIp = config('services.riskmap.resolve_ip', env('RISKMAP_RESOLVE_IP'));
+            }
+        }
+
+        if (!empty($resolveIp) && $host) {
+            $client->withOptions([
+                'curl' => [
+                    CURLOPT_RESOLVE => [
+                        "{$host}:{$port}:{$resolveIp}",
+                        "{$host}:443:{$resolveIp}",
+                        "{$host}:80:{$resolveIp}",
+                    ],
+                ],
+            ]);
+        }
+
+        return $client;
+    }
+
+    /**
      * Standardized HTTP client with browser headers, timeout, and SSL bypass.
      */
     protected function httpGet(string $url, int $timeout = 60): mixed
     {
-        $response = Http::timeout($timeout)
-            ->connectTimeout(15)
-            ->withHeaders([
-                'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                'Accept' => 'application/json, text/plain, */*',
-            ])
-            ->withoutVerifying()
-            ->get($url);
+        $response = $this->buildClient($url, $timeout, 15)->get($url);
 
         if (!$response->successful()) {
             throw new \Exception("External API returned HTTP {$response->status()} for URL: {$url}");
@@ -237,7 +292,7 @@ class ExternalApiService
 
     public function disasterBreakdown(bool $force = false): mixed
     {
-        $url = 'https://efarmer.doae.go.th/api/disaster/breakdown';
+        $url = $this->efarmerBaseUrl() . '/api/disaster/breakdown';
 
         return $this->fetch('efarmer:disaster/breakdown', fn() => $this->httpGet($url, 30), 14400, $force); // แคช 4 ชั่วโมง
     }
@@ -264,16 +319,12 @@ class ExternalApiService
             json_encode($filters, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
         );
 
-        return $this->fetch($cacheKey, function () use ($filters) {
-            $response = Http::timeout(30)
-                ->connectTimeout(15)
-                ->withHeaders([
-                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                    'Accept' => 'application/json, text/plain, */*',
-                ])
+        $url = $this->efarmerBaseUrl() . '/api/disaster/subsidy';
+
+        return $this->fetch($cacheKey, function () use ($filters, $url) {
+            $response = $this->buildClient($url, 30, 15)
                 ->asJson()
-                ->withoutVerifying()
-                ->post('https://efarmer.doae.go.th/api/disaster/subsidy', $filters);
+                ->post($url, $filters);
 
             if (!$response->successful()) {
                 throw new \Exception("efarmer:disaster/subsidy returned HTTP {$response->status()}");
@@ -359,10 +410,12 @@ class ExternalApiService
         $dateDisaster = $dateDisaster ?: now()->format('Y-m-d');
         $cacheKey = "efarmer:none-produce:{$level}:{$dateDisaster}" . ($areaCode ? ":{$areaCode}" : '');
 
-        return $this->fetch($cacheKey, function () use ($level, $areaCode, $dateDisaster) {
+        $url = $this->efarmerBaseUrl() . '/api/farmer/noneProduce';
+
+        return $this->fetch($cacheKey, function () use ($level, $areaCode, $dateDisaster, $url) {
             $isConsole = app()->runningInConsole();
             $defaultTimeout = $isConsole ? 300 : 180;
-            $timeout = (int) env('EFARMER_TIMEOUT', $defaultTimeout);
+            $timeout = (int) config('services.efarmer.timeout', env('EFARMER_TIMEOUT', $defaultTimeout));
 
             @set_time_limit($timeout + 60);
 
@@ -371,15 +424,9 @@ class ExternalApiService
                 $formData['areaCode'] = $areaCode;
             }
 
-            $response = Http::timeout($timeout)
-                ->connectTimeout($timeout)
-                ->withHeaders([
-                    'User-Agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-                    'Accept'     => 'application/json, text/plain, */*',
-                ])
-                ->withoutVerifying()
+            $response = $this->buildClient($url, $timeout, $timeout)
                 ->asForm()
-                ->post('https://efarmer.doae.go.th/api/farmer/noneProduce', $formData);
+                ->post($url, $formData);
 
             if (!$response->successful()) {
                 throw new \Exception("efarmer:noneProduce returned HTTP {$response->status()}");
@@ -402,7 +449,8 @@ class ExternalApiService
     public function rainAverage(string $level = 'p', ?string $adminCode = null, bool $force = false): mixed
     {
         $cacheKey = "riskmap:rain-average:{$level}" . ($adminCode ? ":{$adminCode}" : '');
-        $url = "https://riskmap.doae.go.th/api_get_rain_average?level={$level}";
+        $baseUrl = $this->riskmapBaseUrl();
+        $url = "{$baseUrl}/api_get_rain_average?level={$level}";
         if ($adminCode) {
             $url .= "&admin_code={$adminCode}";
         }

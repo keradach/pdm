@@ -59,6 +59,43 @@ Artisan::command('api:cache-none-produce {--date=} {--level=province} {--area-co
     return 0;
 })->purpose('Fetch noneProduce from efarmer.doae.go.th and cache into database');
 
+Artisan::command('api:test-efarmer', function () {
+    $service = new ExternalApiService();
+    $baseUrl = $service->efarmerBaseUrl();
+    $resolveIp = config('services.efarmer.resolve_ip', env('EFARMER_RESOLVE_IP'));
+
+    $this->info("=== Testing eFarmer Connectivity ===");
+    $this->line("Base URL    : {$baseUrl}");
+    $this->line("Resolve IP  : " . ($resolveIp ?: '<not set (using system DNS)>'));
+
+    $host = parse_url($baseUrl, PHP_URL_HOST) ?: 'efarmer.doae.go.th';
+    $this->line("Resolving DNS for host: {$host}...");
+
+    $systemIp = @gethostbyname($host);
+    if ($systemIp && $systemIp !== $host) {
+        $this->info(" -> System DNS resolved to: {$systemIp}");
+    } else {
+        $this->warn(" -> System DNS FAILED to resolve '{$host}'!");
+        if (empty($resolveIp)) {
+            $this->error("    Recommendation: Add EFARMER_RESOLVE_IP=<ip> to .env or configure Docker DNS / extra_hosts.");
+        }
+    }
+
+    $this->line("\nTesting HTTP GET to {$baseUrl}/api/disaster/breakdown...");
+    $startTime = microtime(true);
+    try {
+        $data = $service->disasterBreakdown(force: true);
+        $duration = round(microtime(true) - $startTime, 2);
+        $this->info(" -> Success! Status 200 OK (took {$duration}s)");
+        if (is_array($data)) {
+            $this->line(" -> Response keys: " . implode(', ', array_keys($data)));
+        }
+    } catch (\Throwable $e) {
+        $duration = round(microtime(true) - $startTime, 2);
+        $this->error(" -> Failed after {$duration}s: " . $e->getMessage());
+    }
+})->purpose('Test DNS resolution and HTTP connectivity to efarmer.doae.go.th');
+
 // =============================================================================
 // Laravel Scheduler
 // =============================================================================
