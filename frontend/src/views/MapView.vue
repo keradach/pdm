@@ -15,8 +15,7 @@
                 </div>
                 <div>
                     <h1 class="text-lg md:text-xl font-bold tracking-wide leading-tight">ระบบแผนที่วิเคราะห์ข้อมูล</h1>
-                    <p class="text-[11px] text-emerald-100 hidden sm:block">พิกัดปริมาณน้ำในเขื่อน (ThaiWater)
-                        และอุณหภูมิเฉลี่ยทั่วประเทศ (TMD)</p>
+                    <p class="text-[11px] text-emerald-100 hidden sm:block">ปริมาณฝนเฉลี่ยสะสม (RiskMap DOAE), พิกัดน้ำในเขื่อน (ThaiWater) และอุณหภูมิ (TMD)</p>
                 </div>
             </div>
 
@@ -32,9 +31,16 @@
                 <div class="h-3 w-px bg-white/20"></div>
                 <div class="flex items-center space-x-1.5">
                     <span class="w-2 h-2 rounded-full bg-amber-400"></span>
-                    <span class="text-emerald-100">อุณหภูมิเฉลี่ยทั้งประเทศ:</span>
+                    <span class="text-emerald-100">อุณหภูมิเฉลี่ย:</span>
                     <span class="font-bold text-white">{{ nationalWeatherSummary.avgTemp ?
                         nationalWeatherSummary.avgTemp + '°C' : 'กำลังโหลด...' }}</span>
+                </div>
+                <div class="h-3 w-px bg-white/20"></div>
+                <div class="flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-sky-300"></span>
+                    <span class="text-emerald-100">ฝนเฉลี่ย ({{ currentPeriodShortLabel }}):</span>
+                    <span class="font-bold text-white">{{ nationalRainSummary.avgRain ?
+                        nationalRainSummary.avgRain + ' มม.' : '-' }}</span>
                 </div>
             </div>
 
@@ -56,7 +62,6 @@
                             <path stroke-linecap="round" stroke-linejoin="round"
                                 d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
                         </svg>
-                        <!-- <span>หน้าหลัก</span> -->
                     </a>
                 </div>
             </div>
@@ -77,7 +82,7 @@
                         class="bg-white/95 px-4 py-3 rounded-xl shadow-lg border border-emerald-100 flex items-center space-x-3">
                         <div class="w-5 h-5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin">
                         </div>
-                        <span class="text-xs font-semibold text-gray-700">กำลังเชื่อมต่อ API เขื่อนและอุณหภูมิ...</span>
+                        <span class="text-xs font-semibold text-gray-700">กำลังเชื่อมต่อ API เขื่อน, อุณหภูมิ และ RiskMap...</span>
                     </div>
                 </div>
 
@@ -96,6 +101,17 @@
                             <input type="checkbox" :checked="allLayersOn" @change="toggleAll"
                                 class="h-3.5 w-3.5 rounded accent-white cursor-pointer" />
                             <span>🗺️ ทั้งหมด</span>
+                        </label>
+
+                        <!-- ฝนเฉลี่ย RiskMap -->
+                        <label :class="[
+                            'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer select-none transition border',
+                            enabledLayers.riskmap ? 'bg-cyan-700 text-white border-cyan-700' : 'text-gray-600 hover:bg-gray-100 border-black/5'
+                        ]">
+                            <input type="checkbox" v-model="enabledLayers.riskmap" @change="syncMapLayers"
+                                class="h-3.5 w-3.5 rounded accent-white cursor-pointer" />
+                            <span>🌧️ ฝน RiskMap</span>
+                            <span class="text-[10px] opacity-80">({{ provinceList.length }})</span>
                         </label>
 
                         <!-- เขื่อน -->
@@ -120,15 +136,6 @@
                             <span class="text-[10px] opacity-80">({{ rawStations.length }})</span>
                         </label>
 
-                        <!-- ภัยพิบัติ (ยังไม่เปิดใช้งาน)
-                        <label :class="[
-                            'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer select-none transition border',
-                            enabledLayers.disaster ? 'bg-red-600 text-white border-red-600' : 'text-gray-600 hover:bg-gray-100 border-black/5'
-                        ]">
-                            <input type="checkbox" v-model="enabledLayers.disaster" @change="syncMapLayers"
-                                class="h-3.5 w-3.5 rounded accent-white cursor-pointer" />
-                            <span>⚠️ ภัยพิบัติ</span>
-                        </label> -->
                         <button @click="resetMapView" title="รีเซ็ตมุมมองประเทศไทย"
                             class="p-1 rounded-lg text-gray-500 hover:text-emerald-700 hover:bg-emerald-50 transition">
                             <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" viewBox="0 0 24 24"
@@ -139,6 +146,20 @@
                         </button>
                     </div>
 
+                    <!-- PERIOD SELECTOR (เมื่อเปิดเลเยอร์ RiskMap) -->
+                    <div v-if="enabledLayers.riskmap"
+                        class="bg-white/95 backdrop-blur shadow-lg rounded-xl p-1 flex items-center gap-1 border border-emerald-100 pointer-events-auto self-start text-[11px]">
+                        <span class="text-gray-500 font-medium px-1.5 text-[10px]">ช่วงเวลาฝน:</span>
+                        <button v-for="p in rainAveragePeriods" :key="p.key"
+                            @click="setRainPeriod(p.key)"
+                            :class="[
+                                'px-2 py-0.5 rounded-lg transition font-medium',
+                                selectedRainPeriod === p.key ? 'bg-cyan-700 text-white shadow-xs' : 'text-gray-600 hover:bg-gray-100'
+                            ]">
+                            {{ p.shortLabel }}
+                        </button>
+                    </div>
+
                     <!-- SEARCH BOX WITH DROPDOWN -->
                     <div class="relative w-full sm:w-80 pointer-events-auto">
                         <div
@@ -146,12 +167,12 @@
                             <span class="p-1.5 text-gray-400">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                                     stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                             </span>
                             <input v-model="searchQuery" type="text"
-                                placeholder="ค้นหาเขื่อน, สถานีตรวจวัด หรือจังหวัด..."
+                                placeholder="ค้นหาจังหวัด, เขื่อน หรือสถานี..."
                                 class="w-full bg-transparent border-none text-xs focus:outline-none py-1 text-gray-700 placeholder-gray-400" />
                             <button v-if="searchQuery" @click="searchQuery = ''"
                                 class="p-1 text-gray-400 hover:text-gray-600">
@@ -170,10 +191,11 @@
                             <div v-for="(item, idx) in searchResults" :key="idx" @click="flyToItem(item)"
                                 class="p-2 hover:bg-emerald-50 cursor-pointer flex items-center justify-between text-xs transition">
                                 <div class="truncate mr-2">
-                                    <p class="font-bold text-gray-800 truncate">{{ item.type === 'dam' ? '💧' : '🌡️' }}
-                                        {{ item.title }}</p>
-                                    <p class="text-[10px] text-gray-500 truncate">จ.{{ item.province }} {{ item.subtitle
-                                        }}</p>
+                                    <p class="font-bold text-gray-800 truncate">
+                                        {{ item.type === 'dam' ? '💧' : item.type === 'province' ? '🌧️' : '🌡️' }}
+                                        {{ item.title }}
+                                    </p>
+                                    <p class="text-[10px] text-gray-500 truncate">{{ item.subtitle }}</p>
                                 </div>
                                 <span
                                     :class="['px-2 py-0.5 rounded-full text-[10px] font-bold shrink-0', item.badgeClass]">
@@ -192,7 +214,36 @@
                             class="flex items-center justify-between font-bold text-gray-700 pb-1 border-b border-gray-100">
                             <span>คำอธิบายสัญลักษณ์พิกัด</span>
                         </div>
-                        <div v-if="enabledLayers.dams">
+
+                        <!-- คำอธิบาย RiskMap ฝนเฉลี่ยสะสม -->
+                        <div v-if="enabledLayers.riskmap">
+                            <p class="font-semibold text-gray-600 mb-1 text-[11px]">🌧️ ฝนเฉลี่ยสะสม ({{ currentPeriodShortLabel }}):</p>
+                            <div class="grid grid-cols-2 gap-1 text-[10px]">
+                                <div class="flex items-center space-x-1">
+                                    <span class="w-2.5 h-2.5 rounded-sm bg-[#dc3545]"></span>
+                                    <span>≥35 มม. (หนักมาก)</span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="w-2.5 h-2.5 rounded-sm bg-[#fd7e14]"></span>
+                                    <span>20-35 มม. (หนัก)</span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="w-2.5 h-2.5 rounded-sm bg-[#ffc107]"></span>
+                                    <span>10-20 มม. (ปานกลาง)</span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="w-2.5 h-2.5 rounded-sm bg-[#198754]"></span>
+                                    <span>0.1-10 มม. (เล็กน้อย)</span>
+                                </div>
+                                <div class="flex items-center space-x-1 col-span-2">
+                                    <span class="w-2.5 h-2.5 rounded-sm bg-[#0dcaf0]"></span>
+                                    <span>0 มม. (ไม่มีฝน)</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- คำอธิบาย เขื่อน -->
+                        <div v-if="enabledLayers.dams" :class="enabledLayers.riskmap ? 'pt-1 border-t border-gray-100' : ''">
                             <p class="font-semibold text-gray-600 mb-1 text-[11px]">💧 ปริมาณน้ำในเขื่อน (%):</p>
                             <div class="grid grid-cols-2 gap-1 text-[10px]">
                                 <div class="flex items-center space-x-1"><span
@@ -212,6 +263,8 @@
                                         วิกฤตน้อย</span></div>
                             </div>
                         </div>
+
+                        <!-- คำอธิบาย อุณหภูมิ -->
                         <div v-if="enabledLayers.temperature" class="pt-1 border-t border-gray-100">
                             <p class="font-semibold text-gray-600 mb-1 text-[11px]">🌡️ อุณหภูมิสถานีตรวจวัด (°C):</p>
                             <div class="flex items-center justify-between text-[10px] gap-1">
@@ -234,9 +287,7 @@
             <!-- SIDEBAR DATA PANEL (Scrollable sidebar on desktop, Bottom Sheet on mobile) -->
             <aside :class="[
                 'bg-white z-40 transition-transform duration-300 flex flex-col overflow-y-auto overscroll-contain scrollbar-thin border-emerald-100',
-                // Desktop: in-flow sidebar on the right, fixed width, 100% container height, no translate
                 'md:relative md:translate-y-0 md:w-80 lg:w-96 md:h-full md:shrink-0 md:border-l md:border-t-0 md:rounded-none md:shadow-none',
-                // Mobile: bottom drawer sheet
                 'fixed inset-x-0 bottom-0 h-[70vh] rounded-t-2xl shadow-2xl border-t',
                 isSidebarOpen ? 'translate-y-0' : 'translate-y-full md:translate-y-0'
             ]">
@@ -256,31 +307,81 @@
                         </button>
                     </a>
 
-                    <!-- SECTION 1: ALERT STATUS -->
-                    <!-- <div class="bg-[#fcfdfc] p-4 rounded-xl border border-emerald-100">
-                        <h3 class="font-bold text-gray-700 text-sm mb-3 flex items-center">
-                            <span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>
-                            สรุปสถานการณ์ภัยพิบัติ
-                        </h3>
-                        <div class="space-y-2 text-xs">
-                            <div class="flex items-center justify-between p-2 bg-red-50 rounded-lg text-red-700">
-                                <span class="font-medium">🔴 Critical (วิกฤต)</span>
-                                <span class="font-bold bg-red-200 px-2 py-0.5 rounded-full">{{
-                                    disasterSummaryCounters.criticalCount }} พื้นที่</span>
+                    <!-- SECTION 1: RISKMAP RAINFALL DATA (DOAE API REALTIME) -->
+                    <div>
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-bold text-gray-700 text-sm flex items-center space-x-1">
+                                <span>🌧️ ฝนเฉลี่ยสะสม (RiskMap)</span>
+                            </h3>
+                            <span
+                                class="text-[10px] text-cyan-700 bg-cyan-50 px-2 py-0.5 rounded-full font-medium">riskmap.doae.go.th</span>
+                        </div>
+
+                        <!-- Period buttons in Sidebar -->
+                        <div class="grid grid-cols-4 gap-1 mb-2.5">
+                            <button v-for="period in rainAveragePeriods" :key="period.key" type="button"
+                                @click="setRainPeriod(period.key)"
+                                :class="[
+                                    'py-1 text-[11px] rounded-lg transition font-medium text-center border',
+                                    selectedRainPeriod === period.key
+                                        ? 'bg-[#1f5c3f] text-white border-[#1f5c3f] shadow-xs'
+                                        : 'bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-200'
+                                ]">
+                                {{ period.shortLabel }}
+                            </button>
+                        </div>
+
+                        <!-- RiskMap Summary Stats -->
+                        <div class="grid grid-cols-2 gap-2 text-center mb-2.5">
+                            <div class="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                                <p class="text-[11px] text-gray-500">ฝนเฉลี่ยทั้งประเทศ</p>
+                                <p class="text-base font-bold text-cyan-700 mt-0.5">
+                                    {{ nationalRainSummary.avgRain }} มม.
+                                </p>
                             </div>
-                            <div class="flex items-center justify-between p-2 bg-amber-50 rounded-lg text-amber-700">
-                                <span class="font-medium">🟡 Warning (เฝ้าระวัง)</span>
-                                <span class="font-bold bg-amber-200 px-2 py-0.5 rounded-full">{{
-                                    disasterSummaryCounters.warningCount }} พื้นที่</span>
-                            </div>
-                            <div
-                                class="flex items-center justify-between p-2 bg-emerald-50 rounded-lg text-emerald-700">
-                                <span class="font-medium">🟢 Normal (ปกติ)</span>
-                                <span class="font-bold bg-emerald-200 px-2 py-0.5 rounded-full">{{
-                                    disasterSummaryCounters.normalCount }} เขื่อน</span>
+                            <div class="bg-gray-50 p-2.5 rounded-xl border border-gray-100">
+                                <p class="text-[11px] text-gray-500">จังหวัดมีฝนตก</p>
+                                <p class="text-base font-bold text-emerald-600 mt-0.5">
+                                    {{ nationalRainSummary.rainingProvincesCount }} / {{ provinceList.length }}
+                                </p>
                             </div>
                         </div>
-                    </div> -->
+
+                        <!-- Top 5 Provinces by Rain -->
+                        <div v-if="nationalRainSummary.topProvinces && nationalRainSummary.topProvinces.length" class="space-y-1.5">
+                            <div class="flex justify-between items-center text-[11px] font-semibold text-gray-600">
+                                <span>5 อันดับจังหวัดฝนตกสูงสุด (คลิกซูม):</span>
+                                <span class="text-[10px] text-gray-400">ฝนสะสม</span>
+                            </div>
+                            <div class="space-y-1">
+                                <div v-for="(prov, idx) in nationalRainSummary.topProvinces" :key="prov.code"
+                                    @click="flyToProvince(prov)"
+                                    class="bg-gray-50 hover:bg-cyan-50/70 p-2 rounded-lg border border-gray-100 hover:border-cyan-200 cursor-pointer transition text-xs">
+                                    <div class="flex justify-between items-center mb-1">
+                                        <div class="flex items-center space-x-1.5 truncate">
+                                            <span class="w-4 h-4 rounded-full bg-cyan-100 text-cyan-800 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                                {{ idx + 1 }}
+                                            </span>
+                                            <span class="font-medium text-gray-700 truncate">จ.{{ prov.name }}</span>
+                                        </div>
+                                        <span class="font-bold shrink-0" :style="{ color: getRainAvgColor(prov[selectedRainPeriod]) }">
+                                            {{ prov[selectedRainPeriod] != null ? Number(prov[selectedRainPeriod]).toFixed(1) : '0.0' }} มม.
+                                        </span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
+                                        <div class="h-1.5 rounded-full transition-all duration-500"
+                                            :style="{
+                                                width: Math.min((Number(prov[selectedRainPeriod]) || 0) / Math.max(Number(nationalRainSummary.maxRain) || 1, 1) * 100, 100) + '%',
+                                                backgroundColor: getRainAvgColor(prov[selectedRainPeriod])
+                                            }">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="border-t border-gray-100"></div>
 
                     <!-- SECTION 2: WEATHER DATA (TMD API REALTIME) -->
                     <div>
@@ -324,6 +425,8 @@
                         </div>
                     </div>
 
+                    <div class="border-t border-gray-100"></div>
+
                     <!-- SECTION 3: WATER DATA (THAIWATER API REALTIME) -->
                     <div>
                         <div class="flex items-center justify-between mb-2">
@@ -331,7 +434,7 @@
                                 <span>💧 ข้อมูลปริมาณน้ำในเขื่อน</span>
                             </h3>
                             <span class="text-[10px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full font-medium">สสน.
-                                (50 เขื่อน)</span>
+                                ({{ waterReservoirData.length }} เขื่อน)</span>
                         </div>
                         <div class="space-y-3">
                             <!-- Water Reservoir Storage Total -->
@@ -361,7 +464,7 @@
                                 }})</span>
                             <span class="text-[10px] text-gray-400">คลิกเขื่อนเพื่อดูพิกัด</span>
                         </div>
-                        <div class="space-y-2 max-h-[400px] overflow-y-auto scrollbar-thin pr-1.5 overscroll-contain">
+                        <div class="space-y-2 max-h-[350px] overflow-y-auto scrollbar-thin pr-1.5 overscroll-contain">
                             <div v-for="dam in waterReservoirData" :key="dam.id || dam.name" @click="flyToDam(dam)"
                                 class="bg-gray-50 hover:bg-emerald-50/80 p-3 rounded-xl border border-gray-100 hover:border-emerald-200 cursor-pointer transition">
                                 <div class="flex justify-between text-xs mb-1">
@@ -388,23 +491,9 @@
                     </div>
 
                 </div>
-
-                <!-- EMERGENCY BUTTON -->
-                <!-- <div class="p-4 border-t border-gray-100 bg-white">
-                    <button
-                        class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-sm py-2.5 px-4 rounded-xl shadow-md shadow-emerald-100 transition flex items-center justify-center space-x-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd"
-                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-                                clip-rule="evenodd" stroke-width="1" />
-                        </svg>
-                        <span>แจ้งเหตุฉุกเฉิน / รายงานภัย</span>
-                    </button>
-                </div> -->
             </aside>
         </div>
     </div>
-
 </template>
 
 <script setup>
@@ -412,73 +501,174 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '@/services/api';
+import provinceBoundaries from '@/assets/th_adm1.json';
 
 // ควบคุมการ เปิด/ปิด แผงข้อมูลด้านล่างในโหมดมือถือ (Mobile Drawer Toggle)
 const isSidebarOpen = ref(false);
+
 // สถานะการเปิดแสดงของแต่ละเลเยอร์ (checkbox) - แสดงหลายเลเยอร์พร้อมกันได้
 const enabledLayers = reactive({
+    riskmap: true,
     dams: true,
     temperature: true,
-    // disaster: false,
 });
+
 const searchQuery = ref('');
 const isLoading = ref(false);
 
 const mapContainer = ref(null);
 let map = null;
 
-// Leaflet LayerGroups
+// Leaflet Layers
+let riskmapLayer = null;
 let damsLayer = new L.LayerGroup();
 let tempLayer = new L.LayerGroup();
 let disasterLayer = new L.LayerGroup();
 
-// Marker references for fly-to and open popup
+// Marker / Layer references for fly-to and open popup
 const damMarkersMap = new Map();
 const stationMarkersMap = new Map();
-// const disasterMarkersMap = new Map();
-
-// 1. ข้อมูลจุดพิกัดภัยพิบัติสำหรับวาดหมุดบนแผนที่ (Disaster Incidents Markers)
-// const disasterMarkers = ref([
-//     {
-//         id: 'DIS-001',
-//         type: 'flood', // ประเภทภัย: น้ำท่วม
-//         title: 'น้ำท่วมขังผิวจราจร',
-//         location: 'อ.เมือง, จ.เชียงใหม่',
-//         coordinates: [18.7883, 98.9853], // [Latitude, Longitude]
-//         severity: 'critical', // ระดับความรุนแรง: วิกฤต (สีแดง)
-//         reportedAt: '2026-10-02 14:30',
-//         details: 'น้ำท่วมสูง 30-50 ซม. รถเล็กไม่สามารถสัญจรผ่านได้ คาดว่าจะคลี่คลายใน 3 ชม.'
-//     },
-//     {
-//         id: 'DIS-002',
-//         type: 'landslide', // ประเภทภัย: ดินสไลด์
-//         title: 'เฝ้าระวังดินสไลด์และน้ำป่าไหลหลาก',
-//         location: 'อ.แม่สอด, จ.ตาก',
-//         coordinates: [16.7161, 98.5674],
-//         severity: 'warning', // ระดับความรุนแรง: เฝ้าระวัง (สีส้ม)
-//         reportedAt: '2026-10-02 11:15',
-//         details: 'ตรวจพบปริมาณน้ำฝนสะสมเกิน 150 มม. ให้ประชาชนในพื้นที่ลาดเชิงเขาเตรียมพร้อมอพยพ'
-//     },
-//     {
-//         id: 'DIS-003',
-//         type: 'storm', // ประเภทภัย: พายุ/ลมกระโชกแรง
-//         title: 'ต้นไม้ล้มทับเสาไฟฟ้าจากลมกระโชกแรง',
-//         location: 'เขตจตุจักร, กรุงเทพมหานคร',
-//         coordinates: [13.8234, 100.5624],
-//         severity: 'warning', // ระดับความรุนแรง: เฝ้าระวัง (สีเหลือง)
-//         reportedAt: '2026-10-02 15:45',
-//         details: 'เจ้าหน้าที่กำลังเข้าดำเนินการตัดสิ่งกีดขวาง การจราจรติดขัดชะลอตัว'
-//     }
-// ]);
+const provinceLayersMap = new Map();
+const selectedProvinceCode = ref(null);
 
 // ข้อมูลดิบจาก API
 const rawDams = ref([]);
 const rawStations = ref([]);
+const rawRainAverage = ref([]);
 
-// 2. ข้อมูลปริมาณน้ำในอ่างเก็บน้ำ/เขื่อนหลัก (Reservoir Water Data) คำนวณจาก API
+// ช่วงเวลาสำหรับ RiskMap
+const rainAveragePeriods = [
+    { key: 'avg_rain_24h', label: '24 ชั่วโมง', shortLabel: '24 ชม.' },
+    { key: 'avg_yesterday', label: 'เมื่อวาน', shortLabel: 'เมื่อวาน' },
+    { key: 'avg_3d', label: 'สะสม 3 วัน', shortLabel: '3 วัน' },
+    { key: 'avg_7d', label: 'สะสม 7 วัน', shortLabel: '7 วัน' },
+];
+const selectedRainPeriod = ref('avg_rain_24h');
+
+const currentPeriodLabel = computed(() => {
+    return rainAveragePeriods.find(p => p.key === selectedRainPeriod.value)?.label || '24 ชั่วโมง';
+});
+const currentPeriodShortLabel = computed(() => {
+    return rainAveragePeriods.find(p => p.key === selectedRainPeriod.value)?.shortLabel || '24 ชม.';
+});
+
+const setRainPeriod = (periodKey) => {
+    selectedRainPeriod.value = periodKey;
+    if (riskmapLayer) {
+        riskmapLayer.setStyle(getBoundaryStyle);
+    }
+};
+
+// ระดับและสีของปริมาณน้ำฝน RiskMap
+const rainAvgLevels = [
+    { min: 35, color: '#dc3545', label: '≥ 35 มม. (ตกหนักมาก)' },
+    { min: 20, color: '#fd7e14', label: '20-35 มม. (ตกหนัก)' },
+    { min: 10, color: '#ffc107', label: '10-20 มม. (ปานกลาง)' },
+    { min: 0.1, color: '#198754', label: '0.1-10 มม. (เล็กน้อย)' },
+    { min: 0, color: '#0dcaf0', label: '0 มม. (ไม่มีฝน)' },
+];
+
+const getRainAvgColor = (val) => {
+    const num = Number(val);
+    if (val == null || isNaN(num)) return '#9ca3af';
+    for (const l of rainAvgLevels) {
+        if (num >= l.min) return l.color;
+    }
+    return '#0dcaf0';
+};
+
+const normalizeAdminCode = (code) => String(code ?? '').replace(/^TH/i, '').padStart(2, '0');
+
+// จัดเก็บข้อมูลฝนเฉลี่ยเป็น Map โดยใช้รหัสจังหวัดเป็น key
+const rainAverageMap = computed(() => {
+    const mapObj = new Map();
+    rawRainAverage.value.forEach(record => {
+        if (record && record.admin_code != null) {
+            mapObj.set(normalizeAdminCode(record.admin_code), record);
+        }
+    });
+    return mapObj;
+});
+
+// รายชื่อจังหวัดพร้อมสถิติฝนจาก GeoJSON
+const provinceList = computed(() => {
+    if (!provinceBoundaries || !provinceBoundaries.features) return [];
+    return provinceBoundaries.features.map(f => {
+        const pcode = normalizeAdminCode(f.properties.ADM1_PCODE);
+        const name = f.properties.ADM1_TH || f.properties.ADM1_EN || '';
+        const rain = rainAverageMap.value.get(pcode) || {};
+
+        // คำนวณจุดกึ่งกลางคร่าวๆ สำหรับบินไปหาเมื่อคลิก
+        let center = [13.7367, 100.5231];
+        if (f.geometry && f.geometry.coordinates) {
+            let coords = [];
+            if (f.geometry.type === 'Polygon') {
+                coords = f.geometry.coordinates[0];
+            } else if (f.geometry.type === 'MultiPolygon' && f.geometry.coordinates[0]) {
+                coords = f.geometry.coordinates[0][0];
+            }
+            if (coords && coords.length > 0) {
+                let sumLat = 0, sumLon = 0;
+                coords.forEach(pt => {
+                    sumLon += pt[0];
+                    sumLat += pt[1];
+                });
+                center = [sumLat / coords.length, sumLon / coords.length];
+            }
+        }
+
+        return {
+            code: pcode,
+            pcodeRaw: f.properties.ADM1_PCODE,
+            name,
+            nameEn: f.properties.ADM1_EN,
+            center,
+            station_count: rain.station_count ?? 0,
+            avg_rain_24h: rain.avg_rain_24h != null ? Number(rain.avg_rain_24h) : null,
+            avg_yesterday: rain.avg_yesterday != null ? Number(rain.avg_yesterday) : null,
+            avg_3d: rain.avg_3d != null ? Number(rain.avg_3d) : null,
+            avg_7d: rain.avg_7d != null ? Number(rain.avg_7d) : null,
+        };
+    });
+});
+
+// สรุปข้อมูล RiskMap ภาพรวมระดับประเทศ
+const nationalRainSummary = computed(() => {
+    const list = provinceList.value;
+    if (!list.length) {
+        return {
+            avgRain: '0.0',
+            maxRain: '0.0',
+            maxProvince: '-',
+            rainingProvincesCount: 0,
+            totalStations: 0,
+            topProvinces: []
+        };
+    }
+
+    const currentKey = selectedRainPeriod.value;
+    const withData = list.filter(p => p[currentKey] != null);
+    const values = withData.map(p => Number(p[currentKey]) || 0);
+    const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length).toFixed(1) : '0.0';
+
+    const sorted = [...list].sort((a, b) => (Number(b[currentKey]) || 0) - (Number(a[currentKey]) || 0));
+    const maxItem = sorted[0];
+    const rainingCount = list.filter(p => (Number(p[currentKey]) || 0) > 0).length;
+    const totalStations = list.reduce((sum, p) => sum + (p.station_count || 0), 0);
+
+    return {
+        avgRain: avg,
+        maxRain: maxItem && maxItem[currentKey] != null ? Number(maxItem[currentKey]).toFixed(1) : '0.0',
+        maxProvince: maxItem?.name || '-',
+        rainingProvincesCount: rainingCount,
+        totalStations,
+        topProvinces: sorted.slice(0, 5)
+    };
+});
+
+// ข้อมูลปริมาณน้ำในอ่างเก็บน้ำ/เขื่อนหลัก (Reservoir Water Data)
 const waterReservoirData = computed(() => {
     if (!rawDams.value.length) {
-        // Fallback ค่าเริ่มต้นระหว่างรอ API
         return [
             { id: 1, name: 'เขื่อนภูมิพล', province: 'ตาก', currentVolume: 9850, maxCapacity: 13462, percentage: 73, status: 'normal', statusText: 'ปกติ', lat: 17.2436, lon: 98.9722 },
             { id: 2, name: 'เขื่อนสิริกิติ์', province: 'อุตรดิตถ์', currentVolume: 8210, maxCapacity: 9510, percentage: 86, status: 'warning', statusText: 'เฝ้าระวัง', lat: 17.7680, lon: 100.5549 },
@@ -552,7 +742,7 @@ const nationalWaterSummary = computed(() => {
     };
 });
 
-// 3. ข้อมูลสภาพอากาศและอุณหภูมิเฉลี่ยทั้งประเทศ (Regional Weather & Temp Summary)
+// ข้อมูลสภาพอากาศและอุณหภูมิเฉลี่ยทั้งประเทศ
 const nationalWeatherSummary = computed(() => {
     const stations = rawStations.value.filter(s => s.temperature != null && !isNaN(s.temperature));
     if (!stations.length) {
@@ -592,28 +782,31 @@ const nationalWeatherSummary = computed(() => {
     };
 });
 
-// 4. สถิติสรุปภาพรวมความรุนแรง (Severity Dashboard Counter)
-// const disasterSummaryCounters = computed(() => {
-//     const criticalDams = waterReservoirData.value.filter(d => d.percentage > 100 || d.percentage < 30).length;
-//     const warningDams = waterReservoirData.value.filter(d => d.percentage >= 80 && d.percentage <= 100).length;
-//     const normalDams = waterReservoirData.value.filter(d => d.percentage >= 50 && d.percentage < 80).length;
-
-//     const criticalIncidents = disasterMarkers.value.filter(d => d.severity === 'critical').length;
-//     const warningIncidents = disasterMarkers.value.filter(d => d.severity === 'warning').length;
-
-//     return {
-//         criticalCount: criticalDams + criticalIncidents,
-//         warningCount: warningDams + warningIncidents,
-//         normalCount: normalDams || 40
-//     };
-// });
-
 // การค้นหาอัตโนมัติ (Search Autocomplete)
 const searchResults = computed(() => {
     const q = searchQuery.value.trim().toLowerCase();
     if (q.length < 2) return [];
 
     const results = [];
+
+    // ค้นหาจังหวัด (RiskMap)
+    provinceList.value.forEach(p => {
+        if (p.name.toLowerCase().includes(q) || (p.nameEn && p.nameEn.toLowerCase().includes(q))) {
+            const rainVal = p[selectedRainPeriod.value];
+            results.push({
+                type: 'province',
+                id: `prov-${p.code}`,
+                title: `จ.${p.name}`,
+                province: p.name,
+                subtitle: `ฝนเฉลี่ยสะสม (${currentPeriodShortLabel.value}): ${rainVal != null ? Number(rainVal).toFixed(1) + ' มม.' : 'N/A'}`,
+                lat: p.center[0],
+                lon: p.center[1],
+                code: p.code,
+                valueText: `${rainVal != null ? Number(rainVal).toFixed(1) : 0} มม.`,
+                badgeClass: 'bg-cyan-100 text-cyan-800'
+            });
+        }
+    });
 
     // ค้นหาเขื่อน
     waterReservoirData.value.forEach(dam => {
@@ -623,7 +816,7 @@ const searchResults = computed(() => {
                 id: `dam-${dam.id}`,
                 title: dam.name,
                 province: dam.province,
-                subtitle: `(${dam.agency || 'RID'})`,
+                subtitle: `จ.${dam.province} (${dam.agency || 'RID'})`,
                 lat: dam.lat,
                 lon: dam.lon,
                 valueText: `${dam.percentage}%`,
@@ -642,7 +835,7 @@ const searchResults = computed(() => {
                 id: `st-${st.station_id}`,
                 title: st.station_name_th,
                 province: st.province_name_th,
-                subtitle: `(${st.region_name_th || ''})`,
+                subtitle: `จ.${st.province_name_th || ''} (${st.region_name_th || ''})`,
                 lat: st.station_lat,
                 lon: st.station_lon,
                 valueText: `${st.temperature}°C`,
@@ -653,30 +846,6 @@ const searchResults = computed(() => {
 
     return results.slice(0, 8);
 });
-
-// ฟังก์ชันสร้างไอคอนหมุดแบบแต่งสีตามระดับความรุนแรงภัย (Custom Marker Icons)
-// const createCustomIcon = (severity) => {
-//     let color = '#10B981'; // สีเขียวปกติ
-//     if (severity === 'critical') color = '#EF4444'; // สีแดงวิกฤต
-//     if (severity === 'warning') color = '#F59E0B'; // สีส้ม/เหลืองเตือนภัย
-
-//     return L.divIcon({
-//         className: 'custom-leaflet-icon',
-//         html: `
-//             <div style="
-//                 background-color: ${color}; 
-//                 width: 22px; 
-//                 height: 22px; 
-//                 border-radius: 50%; 
-//                 border: 3px solid white; 
-//                 box-shadow: 0 2px 5px rgba(0,0,0,0.3);
-//                 animation: pulse 2s infinite;
-//             "></div>
-//         `,
-//         iconSize: [22, 22],
-//         iconAnchor: [11, 11]
-//     });
-// };
 
 // สีตามระดับเปอร์เซ็นต์น้ำในเขื่อน
 const getDamColor = (pct) => {
@@ -696,6 +865,91 @@ const getTempColor = (temp) => {
     if (t < 32) return '#eab308'; // ค่อนข้างร้อน
     if (t < 35) return '#f97316'; // ร้อน
     return '#dc2626'; // ร้อนจัด
+};
+
+// สไตล์ของขอบเขตจังหวัด RiskMap
+const getBoundaryStyle = (feature) => {
+    const provinceCode = normalizeAdminCode(feature.properties.ADM1_PCODE);
+    const rainRecord = rainAverageMap.value.get(provinceCode);
+    const val = rainRecord && rainRecord[selectedRainPeriod.value] != null ? Number(rainRecord[selectedRainPeriod.value]) : null;
+    const isSelected = selectedProvinceCode.value === provinceCode;
+
+    return {
+        pane: 'riskmapPane',
+        color: isSelected ? '#0f172a' : '#ffffff',
+        weight: isSelected ? 2.5 : 1,
+        fillColor: val == null ? '#9ca3af' : getRainAvgColor(val),
+        fillOpacity: isSelected ? 0.85 : (val == null ? 0.25 : 0.65),
+    };
+};
+
+// เนื้อหา Tooltip สำหรับจังหวัด
+const getProvinceTooltipContent = (provinceCode, provinceName, feature) => {
+    const rainRecord = rainAverageMap.value.get(provinceCode);
+    const periodLabel = currentPeriodLabel.value;
+    const val = rainRecord && rainRecord[selectedRainPeriod.value] != null 
+        ? Number(rainRecord[selectedRainPeriod.value]).toFixed(1) 
+        : null;
+    const stations = rainRecord?.station_count ?? '-';
+    const color = val != null ? getRainAvgColor(Number(val)) : '#9ca3af';
+
+    return `
+        <div style="font-family: sans-serif; min-width: 170px; font-size: 12px; line-height: 1.5; padding: 2px;">
+            <div style="font-weight: 700; font-size: 13px; color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; margin-bottom: 4px;">
+                จ.${provinceName} <span style="font-size: 10px; color: #6b7280; font-weight: normal;">(${feature.properties.ADM1_PCODE || ''})</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px;">
+                <span style="color: #4b5563;">ฝนเฉลี่ยสะสม (${periodLabel}):</span>
+                <strong style="color: ${color}; font-size: 14px;">${val != null ? val + ' มม.' : 'ไม่มีข้อมูล'}</strong>
+            </div>
+            <div style="font-size: 11px; color: #6b7280;">
+                จำนวนสถานีตรวจวัด: <b>${stations}</b> แห่ง
+            </div>
+            <div style="font-size: 10px; color: #9ca3af; margin-top: 4px; border-top: 1px solid #f3f4f6; padding-top: 3px;">
+                แหล่งข้อมูล: riskmap.doae.go.th
+            </div>
+        </div>
+    `;
+};
+
+// ผูกเหตุการณ์กับแต่ละขอบเขตจังหวัด
+const bindBoundaryEvents = (feature, layer) => {
+    const provinceCode = normalizeAdminCode(feature.properties.ADM1_PCODE);
+    const provinceName = feature.properties.ADM1_TH || feature.properties.ADM1_EN || 'ไม่ระบุ';
+
+    provinceLayersMap.set(provinceCode, layer);
+
+    layer.bindTooltip(() => getProvinceTooltipContent(provinceCode, provinceName, feature), {
+        sticky: true,
+        direction: 'auto',
+        className: 'riskmap-province-tooltip'
+    });
+
+    layer.on({
+        mouseover: (e) => {
+            const l = e.target;
+            l.setStyle({
+                weight: 2.5,
+                color: '#1f5c3f',
+                fillOpacity: 0.85
+            });
+            l.bringToFront();
+        },
+        mouseout: (e) => {
+            if (riskmapLayer) {
+                riskmapLayer.resetStyle(e.target);
+            }
+        },
+        click: (e) => {
+            selectedProvinceCode.value = provinceCode;
+            if (riskmapLayer) {
+                riskmapLayer.setStyle(getBoundaryStyle);
+            }
+            if (map && e.target.getBounds().isValid()) {
+                map.fitBounds(e.target.getBounds(), { maxZoom: 9, padding: [25, 25] });
+            }
+        }
+    });
 };
 
 // วาดหมุดเขื่อนลงบนแผนที่
@@ -811,34 +1065,17 @@ const renderTemperatureMarkers = () => {
     });
 };
 
-// วาดหมุดจุดเกิดเหตุภัยพิบัติ
-// const renderDisasterMarkers = () => {
-//     disasterLayer.clearLayers();
-//     disasterMarkersMap.clear();
-
-//     disasterMarkers.value.forEach(incident => {
-//         const markerIcon = createCustomIcon(incident.severity);
-//         const popupContent = `
-//             <div style="font-family: sans-serif; min-width: 180px; font-size: 12px; line-height: 1.4;">
-//                 <strong style="color: ${incident.severity === 'critical' ? '#dc2626' : '#d97706'}; font-size: 13px;">${incident.title}</strong>
-//                 <div style="color: #6b7280; font-size: 11px; margin-bottom: 4px;">${incident.location}</div>
-//                 <div style="color: #374151;">${incident.details}</div>
-//                 <div style="color: #9ca3af; font-size: 10px; margin-top: 6px; border-top: 1px solid #f3f4f6; padding-top: 3px;">
-//                     เวลา: ${incident.reportedAt}
-//                 </div>
-//             </div>
-//         `;
-//         const marker = L.marker(incident.coordinates, { icon: markerIcon }).bindPopup(popupContent);
-//         marker.addTo(disasterLayer);
-//         disasterMarkersMap.set(incident.id, marker);
-//     });
-// };
-
 // ซิงค์เลเยอร์กับแผนที่ตามสถานะ checkbox (เปิด/ปิด พร้อมกันได้หลายเลเยอร์)
 const syncMapLayers = () => {
     if (!map) return;
-    const layerMap = { dams: damsLayer, temperature: tempLayer, disaster: disasterLayer };
+    const layerMap = {
+        riskmap: riskmapLayer,
+        dams: damsLayer,
+        temperature: tempLayer,
+        disaster: disasterLayer
+    };
     for (const [name, layer] of Object.entries(layerMap)) {
+        if (!layer) continue;
         const enabled = enabledLayers[name];
         if (enabled && !map.hasLayer(layer)) map.addLayer(layer);
         if (!enabled && map.hasLayer(layer)) map.removeLayer(layer);
@@ -856,6 +1093,10 @@ const toggleAll = () => {
 // รีเซ็ตมุมมองแผนที่
 const resetMapView = () => {
     if (!map) return;
+    selectedProvinceCode.value = null;
+    if (riskmapLayer) {
+        riskmapLayer.setStyle(getBoundaryStyle);
+    }
     map.flyTo([13.7367, 100.5231], 6, { duration: 1 });
 };
 
@@ -869,11 +1110,39 @@ const flyToDam = (dam) => {
     }, 1300);
 };
 
+// บินไปยังจังหวัด (RiskMap)
+const flyToProvince = (prov) => {
+    if (!map || !prov) return;
+    selectedProvinceCode.value = prov.code;
+    if (riskmapLayer) {
+        riskmapLayer.setStyle(getBoundaryStyle);
+    }
+
+    const layer = provinceLayersMap.get(prov.code);
+    if (layer && layer.getBounds && layer.getBounds().isValid()) {
+        map.fitBounds(layer.getBounds(), { maxZoom: 9, padding: [30, 30] });
+        setTimeout(() => {
+            layer.openTooltip();
+        }, 600);
+    } else if (prov.center) {
+        map.flyTo(prov.center, 8, { duration: 1.2 });
+    }
+};
+
 // บินไปยังผลการค้นหา
 const flyToItem = (item) => {
     if (!map || item.lat == null || item.lon == null) return;
-    map.flyTo([item.lat, item.lon], 10, { duration: 1.2 });
     searchQuery.value = '';
+
+    if (item.type === 'province') {
+        const prov = provinceList.value.find(p => p.code === item.code);
+        if (prov) {
+            flyToProvince(prov);
+            return;
+        }
+    }
+
+    map.flyTo([item.lat, item.lon], 10, { duration: 1.2 });
 
     setTimeout(() => {
         if (item.type === 'dam') {
@@ -905,13 +1174,14 @@ const zoomToRegion = (regionName) => {
     }
 };
 
-// ดึงข้อมูล API สำหรับเขื่อนและอุณหภูมิ
+// ดึงข้อมูล API สำหรับเขื่อน, อุณหภูมิ และ RiskMap
 const loadApiData = async () => {
     isLoading.value = true;
     try {
-        const [damsRes, stationsRes] = await Promise.allSettled([
+        const [damsRes, stationsRes, rainAvgRes] = await Promise.allSettled([
             api.getDamWater(),
-            api.getTemperatureStations()
+            api.getTemperatureStations(),
+            api.getRainAverage('p')
         ]);
 
         if (damsRes.status === 'fulfilled' && Array.isArray(damsRes.value)) {
@@ -924,7 +1194,14 @@ const loadApiData = async () => {
             renderTemperatureMarkers();
         }
 
-        // renderDisasterMarkers();
+        if (rainAvgRes.status === 'fulfilled') {
+            const val = rainAvgRes.value;
+            const data = Array.isArray(val) ? val : (val?.data || []);
+            rawRainAverage.value = Array.isArray(data) ? data : [];
+            if (riskmapLayer) {
+                riskmapLayer.setStyle(getBoundaryStyle);
+            }
+        }
     } catch (e) {
         console.error('Failed to load map API data:', e);
     } finally {
@@ -948,16 +1225,30 @@ onMounted(() => {
         shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
     });
 
-    // 2. สร้างตัวแผนที่และตั้งค่าพิกัดเริ่มต้นไปที่ใจกลางประเทศไทย [Lat, Lng], ระดับการซูมเริ่มต้น 6
+    // 2. สร้างตัวแผนที่และตั้งค่าพิกัดเริ่มต้นไปที่ใจกลางประเทศไทย
     map = L.map(mapContainer.value).setView([13.7367, 100.5231], 6);
 
-    // 3. ใช้แผนที่ฐาน (TileLayer) โทนสีขาวสว่าง สะอาดตา เพื่อให้เข้ากับธีมหลัก
+    // 3. ใช้แผนที่ฐาน (TileLayer) โทนสีขาวสว่าง สะอาดตา
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 20
     }).addTo(map);
 
+    // 4. สร้าง Pane สำหรับ RiskMap Polygons (z-index 350 ต่ำกว่า Marker ป้องกันการบังหมุด)
+    if (!map.getPane('riskmapPane')) {
+        map.createPane('riskmapPane');
+        map.getPane('riskmapPane').style.zIndex = 350;
+    }
+
+    // 5. สร้าง Layer ขอบเขตจังหวัด RiskMap
+    riskmapLayer = L.geoJSON(provinceBoundaries, {
+        pane: 'riskmapPane',
+        style: getBoundaryStyle,
+        onEachFeature: bindBoundaryEvents
+    });
+
     // เพิ่มเลเยอร์เข้าสู่แผนที่
+    riskmapLayer.addTo(map);
     damsLayer.addTo(map);
     tempLayer.addTo(map);
     disasterLayer.addTo(map);
@@ -982,7 +1273,8 @@ onUnmounted(() => {
     }
     damMarkersMap.clear();
     stationMarkersMap.clear();
-    // disasterMarkersMap.clear();
+    provinceLayersMap.clear();
+    riskmapLayer = null;
 });
 </script>
 
@@ -990,6 +1282,14 @@ onUnmounted(() => {
 #map-container {
     width: 100% !important;
     height: 100% !important;
+}
+
+:deep(.riskmap-province-tooltip) {
+    background-color: rgba(255, 255, 255, 0.95);
+    border: 1px solid #10b981;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    padding: 6px 10px;
 }
 
 /* เอฟเฟกต์หมุดกระพริบสำหรับภัยพิบัติ */
