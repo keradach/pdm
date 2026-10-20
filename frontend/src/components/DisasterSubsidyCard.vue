@@ -253,6 +253,14 @@ const plantGroups = computed(() => {
     [2, { id: 2, name: 'พืชไร่พืชผัก' }],
     [3, { id: 3, name: 'ไม้ผลไม้ยืนต้น' }],
   ])
+  for (const group of props.data?.summary?.by_plant_group || []) {
+    if (!groups.has(group.plant_group_id)) {
+      groups.set(group.plant_group_id, {
+        id: group.plant_group_id,
+        name: group.plant_group_name,
+      })
+    }
+  }
   for (const area of areaRows.value) {
     for (const group of area.by_plant_group || []) {
       if (!groups.has(group.plant_group_id)) {
@@ -266,8 +274,90 @@ const plantGroups = computed(() => {
   return [...groups.values()]
 })
 
+const sortState = reactive({
+  key: 'damage_total',
+  order: 'desc',
+})
+
+function toggleSort(key) {
+  if (sortState.key === key) {
+    sortState.order = sortState.order === 'desc' ? 'asc' : 'desc'
+  } else {
+    sortState.key = key
+    sortState.order = key === 'area_name' ? 'asc' : 'desc'
+  }
+}
+
+function getDamageValue(row) {
+  if (!row) return 0
+  let rai = row.damage_rai_decimal
+  if (rai == null && row.damage_rai != null) {
+    rai =
+      Number(row.damage_rai) +
+      Number(row.damage_ngan || 0) / 4 +
+      Number(row.damage_wa || 0) / 160
+  }
+  const num = Number(rai)
+  return Number.isFinite(num) ? num : 0
+}
+
+function getRepairValue(row) {
+  if (!row) return 0
+  let rai = row.repair_rai_decimal
+  if (rai == null && row.repair_rai != null) {
+    rai =
+      Number(row.repair_rai) +
+      Number(row.repair_ngan || 0) / 4 +
+      Number(row.repair_wa || 0) / 160
+  }
+  const num = Number(rai)
+  return Number.isFinite(num) ? num : 0
+}
+
+function getRowSortValue(row, key) {
+  if (!row) return 0
+  if (key === 'area_name') {
+    return getAreaName(row) || ''
+  }
+  if (key === 'damage_total') {
+    return getDamageValue(row)
+  }
+  if (key === 'repair_total') {
+    return getRepairValue(row)
+  }
+  if (key.startsWith('damage_group_')) {
+    const groupId = Number(key.replace('damage_group_', ''))
+    const group = (row.by_plant_group || []).find((g) => g.plant_group_id === groupId)
+    return getDamageValue(group)
+  }
+  if (key.startsWith('repair_group_')) {
+    const groupId = Number(key.replace('repair_group_', ''))
+    const group = (row.by_plant_group || []).find((g) => g.plant_group_id === groupId)
+    return getRepairValue(group)
+  }
+  return 0
+}
+
+const sortedAreaRows = computed(() => {
+  const { key, order } = sortState
+  return [...areaRows.value].sort((a, b) => {
+    const valA = getRowSortValue(a, key)
+    const valB = getRowSortValue(b, key)
+    let comparison = 0
+    if (typeof valA === 'string' || typeof valB === 'string') {
+      comparison = String(valA).localeCompare(String(valB), 'th')
+    } else {
+      comparison = Number(valA || 0) - Number(valB || 0)
+    }
+    if (comparison !== 0) {
+      return order === 'asc' ? comparison : -comparison
+    }
+    return (getAreaName(a) || '').localeCompare(getAreaName(b) || '', 'th')
+  })
+})
+
 const tableRows = computed(() =>
-  areaRows.value.map((area, index) => ({
+  sortedAreaRows.value.map((area, index) => ({
     ...area,
     rowKey: area.area_code || area.province_code || area.amphur_code || area.tambon_code || index,
     groups: new Map(
@@ -276,11 +366,37 @@ const tableRows = computed(() =>
   })),
 )
 
+const summaryRow = computed(() => {
+  const summary = props.data?.summary
+  if (!summary) return null
+  return {
+    ...summary,
+    area_name: 'รวมทั้งหมด',
+    groups: new Map(
+      (summary.by_plant_group || []).map((group) => [group.plant_group_id, group]),
+    ),
+  }
+})
+
+const summaryPlantGroups = computed(() => {
+  const list = props.data?.summary?.by_plant_group
+  if (!Array.isArray(list) || !list.length) return []
+  return list
+})
+
 const metrics = [
   { key: 'total_farmer', label: 'เกษตรกรได้รับความช่วยเหลือ', unit: 'ราย' },
-  { key: 'damage_rai_decimal', label: 'พื้นที่เสียหาย', unit: 'ไร่', fractionDigits: 4 },
-  { key: 'repair_rai_decimal', label: 'พื้นที่ฟื้นฟู/ซ่อมแซม', unit: 'ไร่', fractionDigits: 4 },
+  { key: 'damage', prefix: 'damage', isArea: true, label: 'พื้นที่เสียหาย', unit: 'ไร่' },
+  { key: 'repair', prefix: 'repair', isArea: true, label: 'พื้นที่ฟื้นฟู/ซ่อมแซม', unit: 'ไร่' },
 ]
+
+function getMetricValue(metric) {
+  if (!props.data?.summary) return '-'
+  if (metric.isArea) {
+    return formatArea(props.data.summary, metric.prefix)
+  }
+  return formatNumber(props.data.summary[metric.key], metric.fractionDigits || 0)
+}
 </script>
 
 <template>
@@ -375,31 +491,80 @@ const metrics = [
         <article v-for="metric in metrics" :key="metric.key" class="rounded-lg border border-edge bg-page px-3 py-3">
           <p class="text-xs text-muted">{{ metric.label }}</p>
           <p class="mt-1 text-xl font-bold text-ink">
-            {{ formatNumber(data.summary[metric.key], metric.fractionDigits || 0) }}
+            {{ getMetricValue(metric) }}
             <span class="text-sm font-medium text-muted">{{ metric.unit }}</span>
           </p>
         </article>
       </div>
 
-      <div class="mb-2 text-sm font-semibold text-ink">
-        ข้อมูลราย{{ areaLevelLabels[areaLevel] }}{{ selectedAreaName ? ` — ${selectedAreaName}` : '' }}
+      <div v-if="summaryPlantGroups.length" class="mb-4">
+        <p class="mb-1.5 text-xs font-semibold text-muted">สรุปแยกตามกลุ่มพืช (จากข้อมูลภาพรวม)</p>
+        <div class="grid gap-2 sm:grid-cols-3">
+          <div v-for="group in summaryPlantGroups" :key="group.plant_group_id"
+            class="rounded-lg border border-edge bg-page p-3 text-xs">
+            <p class="font-bold text-ink text-sm">{{ group.plant_group_name }}</p>
+            <div class="mt-2 flex items-center justify-between text-muted">
+              <span>พื้นที่เสียหาย:</span>
+              <span class="font-semibold text-rose-600">{{ formatArea(group, 'damage') }} ไร่</span>
+            </div>
+            <div class="mt-1 flex items-center justify-between text-muted">
+              <span>ช่วยเหลือแล้ว:</span>
+              <span class="font-semibold text-pdm-green-deep">{{ formatArea(group, 'repair') }} ไร่</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div class="overflow-x-auto rounded-lg border border-edge">
+
+      <div class="mb-2 flex flex-wrap items-center justify-between gap-2 text-sm font-semibold text-ink">
+        <div>
+          <span>ข้อมูลราย{{ areaLevelLabels[areaLevel] }}{{ selectedAreaName ? ` — ${selectedAreaName}` : '' }}</span>
+          <span v-if="areaRows.length > 0" class="ml-1 text-xs font-normal text-muted">
+            (ทั้งหมด {{ areaRows.length }} รายการ{{ areaRows.length > 20 ? ' — เลื่อนดูเพิ่มเติมได้' : '' }})
+          </span>
+        </div>
+        <span class="text-xs font-normal text-muted">
+          💡 คลิกที่หัวคอลัมน์เพื่อเรียงลำดับ
+        </span>
+      </div>
+      <div class="max-h-[680px] overflow-auto rounded-lg border border-edge">
         <table class="w-full min-w-[1100px] border-collapse text-sm">
-          <thead class="bg-pdm-green-deep text-left text-white">
+          <thead class="sticky top-0 z-20 bg-pdm-green-deep text-left text-white shadow-sm">
             <tr>
               <th rowspan="2"
-                class="sticky left-0 z-10 border border-white/30 bg-pdm-green-deep px-3 py-2 font-semibold">
-                {{ areaLevelLabels[areaLevel] }}
+                class="sticky left-0 top-0 z-30 cursor-pointer select-none border border-white/30 bg-pdm-green-deep px-3 py-2 font-semibold transition-colors hover:bg-[#184a32]"
+                :title="`คลิกเพื่อเรียงตามชื่อ${areaLevelLabels[areaLevel]}`"
+                @click="toggleSort('area_name')">
+                <div class="flex items-center justify-between gap-2">
+                  <span>{{ areaLevelLabels[areaLevel] }}</span>
+                  <span class="text-xs" :class="sortState.key === 'area_name' ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === 'area_name' ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
               </th>
-              <th rowspan="2" class="border border-white/30 bg-pdm-green-deep px-3 py-2 font-semibold">
-                เสียหายทั้งหมด (ไร่)
+              <th rowspan="2"
+                class="cursor-pointer select-none border border-white/30 bg-pdm-green-deep px-3 py-2 font-semibold transition-colors hover:bg-[#184a32]"
+                title="คลิกเพื่อเรียงตามพื้นที่เสียหายทั้งหมด"
+                @click="toggleSort('damage_total')">
+                <div class="flex items-center justify-between gap-2">
+                  <span>เสียหายทั้งหมด (ไร่)</span>
+                  <span class="text-xs" :class="sortState.key === 'damage_total' ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === 'damage_total' ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
               </th>
               <th :colspan="plantGroups.length" class="border border-white/30 px-3 py-2 text-center font-semibold">
                 เสียหาย (ไร่)
               </th>
-              <th rowspan="2" class="border border-white/30 bg-pdm-green-deep px-3 py-2 font-semibold">
-                ช่วยเหลือทั้งหมด (ไร่)
+              <th rowspan="2"
+                class="cursor-pointer select-none border border-white/30 bg-pdm-green-deep px-3 py-2 font-semibold transition-colors hover:bg-[#184a32]"
+                title="คลิกเพื่อเรียงตามพื้นที่ช่วยเหลือทั้งหมด"
+                @click="toggleSort('repair_total')">
+                <div class="flex items-center justify-between gap-2">
+                  <span>ช่วยเหลือทั้งหมด (ไร่)</span>
+                  <span class="text-xs" :class="sortState.key === 'repair_total' ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === 'repair_total' ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
               </th>
               <th :colspan="plantGroups.length"
                 class="border border-white/30 bg-[#174a32] px-3 py-2 text-center font-semibold">
@@ -408,19 +573,33 @@ const metrics = [
             </tr>
             <tr>
               <th v-for="group in plantGroups" :key="`damage-${group.id}`"
-                class="min-w-[150px] border border-white/30 px-3 py-2 text-center font-semibold">
-                {{ group.name }}
+                class="min-w-[150px] cursor-pointer select-none border border-white/30 bg-pdm-green-deep px-3 py-2 text-center font-semibold transition-colors hover:bg-[#184a32]"
+                :title="`คลิกเพื่อเรียงตามความเสียหาย (${group.name})`"
+                @click="toggleSort(`damage_group_${group.id}`)">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span>{{ group.name }}</span>
+                  <span class="text-xs" :class="sortState.key === `damage_group_${group.id}` ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === `damage_group_${group.id}` ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
               </th>
               <th v-for="(group, index) in plantGroups" :key="`repair-${group.id}`"
-                class="min-w-[150px] border border-white/30 px-3 py-2 text-center font-semibold">
-                {{ group.name }}
+                class="min-w-[150px] cursor-pointer select-none border border-white/30 bg-[#174a32] px-3 py-2 text-center font-semibold transition-colors hover:bg-[#123b28]"
+                :title="`คลิกเพื่อเรียงตามการช่วยเหลือ (${group.name})`"
+                @click="toggleSort(`repair_group_${group.id}`)">
+                <div class="flex items-center justify-center gap-1.5">
+                  <span>{{ group.name }}</span>
+                  <span class="text-xs" :class="sortState.key === `repair_group_${group.id}` ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === `repair_group_${group.id}` ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
               </th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="row in tableRows" :key="row.rowKey" class="odd:bg-white even:bg-page hover:bg-pdm-green-deep/5">
               <th
-                class="sticky left-0 z-[1] whitespace-nowrap border border-edge bg-inherit px-3 py-2 text-left font-semibold text-ink">
+                class="sticky left-0 z-10 whitespace-nowrap border border-edge bg-inherit px-3 py-2 text-left font-semibold text-ink">
                 {{ getAreaName(row) }}
               </th>
               <th
@@ -440,12 +619,36 @@ const metrics = [
                 {{ formatArea(row.groups.get(group.id) || {}, 'repair') }}
               </td>
             </tr>
-            <tr v-if="!areaRows.length">
+            <tr v-if="!tableRows.length">
               <td :colspan="3 + plantGroups.length * 2" class="border border-edge px-3 py-4 text-center text-muted">
                 ไม่พบข้อมูลราย{{ areaLevelLabels[areaLevel] }}จาก API
               </td>
             </tr>
           </tbody>
+          <tfoot v-if="summaryRow" class="sticky bottom-0 z-20 border-t-2 border-pdm-green-deep bg-[#edf7f1] text-sm shadow-[0_-2px_4px_rgba(0,0,0,0.06)]">
+            <tr class="font-bold text-ink">
+              <th
+                class="sticky left-0 bottom-0 z-30 whitespace-nowrap border border-edge bg-[#e2f0e7] px-3 py-2.5 text-left font-bold text-pdm-green-deep">
+                {{ summaryRow.area_name }}
+              </th>
+              <th
+                class="whitespace-nowrap border-l-2 border-l-pdm-green-deep bg-[#edf7f1] px-3 py-2.5 text-left font-bold text-ink">
+                {{ formatArea(summaryRow, 'damage') }}
+              </th>
+              <td v-for="group in plantGroups" :key="`summary-damage-${group.id}`"
+                class="whitespace-nowrap border border-edge bg-[#edf7f1] px-3 py-2.5 text-center font-bold text-ink">
+                {{ formatArea(summaryRow.groups.get(group.id) || {}, 'damage') }}
+              </td>
+              <th
+                class="whitespace-nowrap border-l-2 border-l-pdm-green-deep bg-[#edf7f1] px-3 py-2.5 text-left font-bold text-ink">
+                {{ formatArea(summaryRow, 'repair') }}
+              </th>
+              <td v-for="group in plantGroups" :key="`summary-repair-${group.id}`"
+                class="whitespace-nowrap border border-edge bg-[#edf7f1] px-3 py-2.5 text-center font-bold text-ink">
+                {{ formatArea(summaryRow.groups.get(group.id) || {}, 'repair') }}
+              </td>
+            </tr>
+          </tfoot>
         </table>
       </div>
       <p class="mt-1 text-[10px] text-muted">
