@@ -117,7 +117,8 @@ function rainBadgeStyle(rain) {
 
       <!-- Date filter -->
       <div class="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full">
-        <label for="noneproduce-date" class="text-[11px] text-muted whitespace-nowrap shrink-0">วันที่คาดว่าเกิดภัย</label>
+        <label for="noneproduce-date"
+          class="text-[11px] text-muted whitespace-nowrap shrink-0">วันที่คาดว่าเกิดภัย</label>
         <input id="noneproduce-date" :value="date" type="date"
           class="min-w-0 max-w-full border border-edge rounded px-2 py-0.5 text-[12px] text-ink bg-white focus:outline-none focus:ring-1 focus:ring-pdm-green-deep"
           @change="emit('update:date', $event.target.value)" />
@@ -211,9 +212,10 @@ function rainBadgeStyle(rain) {
         แหล่งข้อมูล:
         <a href="https://efarmer.doae.go.th" target="_blank" rel="noreferrer"
           class="hover:underline">efarmer.doae.go.th</a>
-        ·
+        {{ `ข้อมูล ณ วันที่ ${new Date(Date.now() - 86400000).toLocaleDateString('th-TH')}` }}
+        <!-- ·
         <a href="https://riskmap.doae.go.th" target="_blank" rel="noreferrer"
-          class="hover:underline">riskmap.doae.go.th</a>
+          class="hover:underline">riskmap.doae.go.th</a> -->
       </p>
     </template>
 

@@ -448,6 +448,12 @@ const metrics = [
           </tbody>
         </table>
       </div>
+      <p class="mt-1 text-[10px] text-muted">
+        แหล่งข้อมูล:
+        <a href="https://disaster.doae.go.th" target="_blank" rel="noreferrer"
+          class="hover:underline">disaster.doae.go.th</a>
+        {{ `ข้อมูล ณ วันที่ ${new Date().toLocaleDateString('th-TH')}` }}
+      </p>
     </template>
   </section>
 </template>
