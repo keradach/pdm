@@ -1,10 +1,10 @@
 # =============================================================================
 # PDM Backend - Laravel 13 on PHP-FPM with Oracle Database support
 # =============================================================================
-# Base image can be overridden via build arg (e.g. php:8.4-fpm-bookworm).
+# Base image can be overridden via build arg (e.g. php:8.5.12-fpm-bookworm).
 # Default is pinned to a stable Debian release (bookworm) so that the
 # `libaio1` package (renamed to libaio1t64 on trixie) is still available.
-ARG PHP_BASE_IMAGE=php:8.4-fpm-bookworm
+ARG PHP_BASE_IMAGE=php:8.5.12-fpm-bookworm
 FROM ${PHP_BASE_IMAGE} AS base
 
 # NOTE: Oracle publishes Instant Client RPMs for BOTH x86_64 and aarch64 under
@@ -59,7 +59,7 @@ ENV LD_LIBRARY_PATH=$ORACLE_LIB_DIR
 # `/usr/include/oracle/23/client64` automatically.
 RUN apt-get update && apt-get install -y libicu-dev \
     && docker-php-ext-install pdo pdo_mysql zip mbstring exif pcntl bcmath gd intl \
-    && printf "instantclient,${ORACLE_LIB_DIR}\n" | pecl install oci8-3.2.1 \
+    && printf "instantclient,${ORACLE_LIB_DIR}\n" | pecl install oci8 \
     && docker-php-ext-enable oci8 intl \
     && rm -rf /var/lib/apt/lists/*
 

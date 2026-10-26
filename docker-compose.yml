@@ -3,7 +3,7 @@
 #
 # Runs local development stack:
 #   - oracle-db: Oracle 23-slim container
-#   - backend: Laravel 13 (PHP 8.4 FPM) with bind mount for hot reload
+#   - backend: Laravel 13 (PHP 8.5.12 FPM) with bind mount for hot reload
 #   - backend-nginx: Nginx reverse proxy (:8000)
 #   - frontend: Vue 3 Vite dev server with HMR (:5173)
 #
@@ -43,7 +43,7 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       args:
-        PHP_BASE_IMAGE: ${PHP_BASE_IMAGE:-php:8.4-fpm-bookworm}
+        PHP_BASE_IMAGE: ${PHP_BASE_IMAGE:-php:8.5.12-fpm-bookworm}
         ORACLE_ARCH: ${ORACLE_ARCH:-}
         ORACLE_INSTANTCLIENT_VERSION: ${ORACLE_INSTANTCLIENT_VERSION:-23.26.3.0.0}
         ORACLE_INSTANTCLIENT_ROOT: ${ORACLE_INSTANTCLIENT_ROOT:-2326300}
