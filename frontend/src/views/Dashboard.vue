@@ -15,6 +15,7 @@ import PartnerLogos from '@/components/PartnerLogos.vue'
 import WeatherCard from '@/components/WeatherCard.vue'
 import NoneProduceCard from '@/components/NoneProduceCard.vue'
 import DisasterSubsidyCard from '@/components/DisasterSubsidyCard.vue'
+import EarlyWarningCard from '@/components/EarlyWarningCard.vue'
 
 const store = useDashboardStore()
 const riskMapColumn = ref(null)
@@ -50,6 +51,10 @@ const {
   mapView,
   rainfallPeriod,
   rainAveragePeriod,
+  disasterForecastData,
+  forecastHorizon,
+  disasterForecastLoading,
+  disasterForecastError,
 } = storeToRefs(store)
 
 onMounted(async () => {
@@ -68,6 +73,19 @@ onMounted(async () => {
 })
 
 onUnmounted(() => riskMapResizeObserver?.disconnect())
+
+function handleSelectAlertProvince(adminCode) {
+  store.setMapView('forecast_risk')
+  const provinceObj = provinces.value?.find(p => String(p.id).padStart(2, '0') === String(adminCode).padStart(2, '0'))
+  if (provinceObj) {
+    store.selectProvince(provinceObj)
+  }
+  store.selectNoneProduceArea({
+    code: String(adminCode).padStart(2, '0'),
+    level: 'province',
+    name: provinceObj?.name_th || '',
+  })
+}
 </script>
 
 <template>
@@ -79,8 +97,13 @@ onUnmounted(() => riskMapResizeObserver?.disconnect())
   <div v-if="loading" class="loading-banner bg-[#eef4ff] text-pdm-blue rounded-[10px] p-[10px_16px] text-[13px]">
     กำลังโหลดข้อมูล...</div>
 
+  <!-- ศูนย์คาดการณ์และเตือนภัยพิบัติด้านพืชล่วงหน้า (Early Warning System) -->
+  <EarlyWarningCard :forecast-data="disasterForecastData" :horizon="forecastHorizon" :loading="disasterForecastLoading"
+    :error="disasterForecastError" @set-horizon="store.setForecastHorizon($event)"
+    @select-province="handleSelectAlertProvince($event)" />
+
   <section class="flex flex-col gap-4">
-    <div class="grid grid-cols-[4fr_2fr] gap-3 items-stretch min-h-0 max-[900px]:grid-cols-1">
+    <div class="grid grid-cols-[3fr_2fr] gap-3 items-stretch min-h-0 max-[900px]:grid-cols-1">
       <div ref="riskMapColumn" class="flex min-h-0 flex-col gap-3 min-w-0">
         <RiskMapCard class="w-full min-w-0" :provinces="provinces" :selected-province="selectedProvince"
           :map-view="mapView" :rainfall-period="rainfallPeriod" :dam-water-data="damWaterData"
@@ -88,14 +111,13 @@ onUnmounted(() => riskMapResizeObserver?.disconnect())
           :none-produce-level="noneProduceLevel" :none-produce-sum-all="noneProduceSumAll"
           :none-produce-parent-area-code="noneProduceParentAreaCode"
           :none-produce-selection-path="noneProduceSelectionPath" :selected-area-code="noneProduceSelectedAreaCode"
-          :rain-average-period="rainAveragePeriod" @select-none-produce-area="store.selectNoneProduceArea($event)"
+          :rain-average-period="rainAveragePeriod" :forecast-data="disasterForecastData"
+          :forecast-horizon="forecastHorizon" @select-none-produce-area="store.selectNoneProduceArea($event)"
           @back-none-produce-area="store.goBackNoneProduceArea()"
           @clear-none-produce-area="store.clearNoneProduceArea()"
           @set-rain-average-period="store.setRainAveragePeriod($event)" @select-province="store.selectProvince($event)"
-          @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)" />
-
-
-
+          @set-map-view="store.setMapView($event)" @set-rainfall-period="store.setRainfallPeriod($event)"
+          @set-forecast-horizon="store.setForecastHorizon($event)" />
         <!-- WeatherCard displayed under RiskMapCard when responsive (<= 900px) -->
         <WeatherCard class="hidden max-[900px]:block" />
       </div>
@@ -106,7 +128,10 @@ onUnmounted(() => riskMapResizeObserver?.disconnect())
           :sum-all="noneProduceSumAll" :parent-area-code="noneProduceParentAreaCode"
           :selection-path="noneProduceSelectionPath" :rain-average-data="rainAverageData" :level="noneProduceLevel"
           :rain-average-period="rainAveragePeriod" :loading="noneProduceLoading" :error="noneProduceError"
-          @update:date="store.setNoneProduceDate($event)" />
+          :forecast-data="disasterForecastData" :forecast-horizon="forecastHorizon"
+          :map-view="mapView"
+          @update:date="store.setNoneProduceDate($event)"
+          @set-map-view="store.setMapView($event)" />
         <!-- <DisasterPieChart class="w-full min-w-0" :breakdown="breakdown" /> -->
       </div>
     </div>

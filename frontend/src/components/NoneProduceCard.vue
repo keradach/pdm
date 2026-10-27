@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { getNoneProduceDisplayRows } from '@/utils/noneProduce'
 
 const props = defineProps({
@@ -16,9 +16,35 @@ const props = defineProps({
   error: { type: String, default: null },
   /** ปริมาณน้ำฝนเฉลี่ย 24 ชม. (riskmap) — ใช้สำหรับ join กับ noneProduce */
   rainAverageData: { type: Array, default: () => [] },
+  /** ข้อมูลคาดการณ์ความเสี่ยงภัยพิบัติล่วงหน้า */
+  forecastData: { type: Object, default: null },
+  forecastHorizon: { type: String, default: '3d' },
+  /** มุมมองแผนที่ปัจจุบัน เพื่อซิงค์โหมดการแสดงผล */
+  mapView: { type: String, default: 'forecast_risk' },
 })
 
-const emit = defineEmits(['update:date'])
+const emit = defineEmits(['update:date', 'set-map-view'])
+
+// โหมดการแสดงผลข้อมูลฝน: 'actual' (ฝนตรวจวัดจริง) หรือ 'forecast' (ฝนคาดการณ์ล่วงหน้า)
+const rainDisplayMode = ref('forecast')
+
+// ซิงค์โหมดการแสดงผลอัตโนมัติตามมุมมองแผนที่ (mapView)
+watch(
+  () => props.mapView,
+  (newView) => {
+    if (newView === 'rain_avg' || newView === 'rain') {
+      rainDisplayMode.value = 'actual'
+    } else if (newView === 'forecast_risk') {
+      rainDisplayMode.value = 'forecast'
+    }
+  },
+  { immediate: true }
+)
+
+const setRainDisplayMode = (mode) => {
+  rainDisplayMode.value = mode
+  emit('set-map-view', mode === 'actual' ? 'rain_avg' : 'forecast_risk')
+}
 
 const levelLabels = {
   province: 'จังหวัด',
@@ -43,23 +69,67 @@ const tableScopeName = computed(() => {
 })
 const normalizeAdminCode = (code) => String(code ?? '').replace(/^TH/i, '')
   .padStart(2, '0')
+
 // สร้าง Map จาก admin_code เพื่อ join ได้เร็ว
 const rainMap = computed(() => {
   const m = new Map()
-  props.rainAverageData.forEach(r => m.set(normalizeAdminCode(r.admin_code), r))
+  props.rainAverageData.forEach(r => {
+    if (r && r.admin_code != null) {
+      m.set(normalizeAdminCode(r.admin_code), r)
+    }
+  })
   return m
 })
+
+// สร้าง Map ข้อมูลคาดการณ์ล่วงหน้า (รองรับทั้งระดับจังหวัด อำเภอ และตำบล)
+const forecastMap = computed(() => {
+  const m = new Map()
+  const list = props.forecastData?.areas || props.forecastData?.provinces || []
+  list.forEach(f => {
+    if (f) {
+      if (f.admin_code != null) m.set(normalizeAdminCode(f.admin_code), f)
+      if (f.code != null) m.set(normalizeAdminCode(f.code), f)
+      if (f.area_code != null) m.set(normalizeAdminCode(f.area_code), f)
+    }
+  })
+  return m
+})
+
+// แปลงค่าน้ำฝนจากข้อมูลคาดการณ์ตามช่วงเวลาที่เลือก
+const getPeriodRainFromForecast = (forecast, period) => {
+  if (!forecast) return null
+  if (period === 'avg_7d') return forecast.rain_7d ?? forecast.forecast_rain
+  if (period === 'avg_3d') return forecast.rain_3d ?? forecast.forecast_rain
+  return forecast.rain_1d ?? forecast.forecast_rain
+}
 
 // รายการ sort ตาม total_plant มากสุดก่อน + แนบข้อมูลฝน
 const rows = computed(() =>
   getNoneProduceDisplayRows(props.data, props.level, props.parentAreaCode)
     .sort((a, b) => Number(b.total_plant) - Number(a.total_plant))
     .map(item => {
-      const averageRain = rainMap.value.get(normalizeAdminCode(item.province_code))?.[props.rainAveragePeriod]
+      const areaCode = normalizeAdminCode(item.area_code || item.district_code || item.subdistrict_code || item.province_code)
+      const pCode = normalizeAdminCode(item.province_code)
+      const forecastItem = forecastMap.value.get(areaCode) || (props.level === 'province' ? forecastMap.value.get(pCode) : null)
+
+      // ดึงค่าน้ำฝนของพื้นที่:
+      // 1. ถ้ามีข้อมูลฝนตรวจวัด riskmap ตรงตามรหัสพื้นที่ ให้ใช้ค่านั้น
+      // 2. ถ้าเป็นระดับอำเภอ/ตำบล และมีข้อมูลพยากรณ์รายพื้นที่ (rain_1d, rain_3d, rain_7d) ให้ใช้ค่ารายพื้นที่นั้น
+      // 3. Fallback ไปใช้ค่าเฉลี่ยระดับจังหวัด
+      const riskmapRain = rainMap.value.get(areaCode)?.[props.rainAveragePeriod]
+      const areaSpecificForecastRain = (props.level !== 'province' && forecastItem)
+        ? getPeriodRainFromForecast(forecastItem, props.rainAveragePeriod)
+        : null
+
+      const averageRain = riskmapRain ?? areaSpecificForecastRain ?? rainMap.value.get(pCode)?.[props.rainAveragePeriod]
       const numericRain = averageRain == null ? null : Number(averageRain)
+
       return {
         ...item,
         avg_rain: Number.isFinite(numericRain) ? numericRain : null,
+        forecast_rain: forecastItem ? forecastItem.forecast_rain : null,
+        risk_level: forecastItem ? forecastItem.risk_level : null,
+        risk_score: forecastItem ? forecastItem.risk_score : null,
       }
     })
 )
@@ -103,6 +173,15 @@ function rainBadgeStyle(rain) {
   if (rain > 0) return { bg: '#198754', text: '#fff', label: `${rain.toFixed(1)}` }
   return { bg: '#0dcaf0', text: '#333', label: '0.0' }
 }
+
+function riskBadgeStyle(level) {
+  switch (level) {
+    case 'critical': return { bg: '#dc3545', text: '#fff', label: 'วิกฤต' }
+    case 'high': return { bg: '#fd7e14', text: '#fff', label: 'เสี่ยงสูง' }
+    case 'watch': return { bg: '#ffc107', text: '#333', label: 'เฝ้าระวัง' }
+    default: return { bg: '#198754', text: '#fff', label: 'ปกติ' }
+  }
+}
 </script>
 
 <template>
@@ -134,10 +213,37 @@ function rainBadgeStyle(rain) {
     </p>
 
     <template v-if="rows.length > 0 || sumAllFarmers !== null || sumAllPlant !== null">
-      <!-- Summary chips -->
-      <p class="mb-2 inline-flex w-fit rounded bg-pdm-green-deep px-2.5 py-1 text-xs font-bold text-white">
-        {{ tableScopeName }}
-      </p>
+      <!-- Summary chips & Display Mode Toggle -->
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <p class="inline-flex w-fit rounded bg-pdm-green-deep px-2.5 py-1 text-xs font-bold text-white">
+          {{ tableScopeName }}
+        </p>
+
+        <!-- Mode Toggle: Actual Rain vs Forecast Rain -->
+        <div class="flex items-center gap-1 bg-page p-0.5 rounded border border-edge text-[11px]">
+          <button
+            type="button"
+            :class="[
+              'px-2 py-0.5 rounded font-medium transition-all cursor-pointer',
+              rainDisplayMode === 'forecast' ? 'bg-pdm-green-deep text-white font-semibold shadow-xs' : 'text-muted hover:text-ink'
+            ]"
+            @click="setRainDisplayMode('forecast')"
+          >
+            ⚡ คาดการณ์ความเสี่ยง
+          </button>
+          <button
+            type="button"
+            :class="[
+              'px-2 py-0.5 rounded font-medium transition-all cursor-pointer',
+              rainDisplayMode === 'actual' ? 'bg-pdm-green-deep text-white font-semibold shadow-xs' : 'text-muted hover:text-ink'
+            ]"
+            @click="setRainDisplayMode('actual')"
+          >
+            🌧️ ฝนสะสมจริง
+          </button>
+        </div>
+      </div>
+
       <div class="flex flex-wrap gap-2 mb-3">
         <div class="flex items-center gap-1.5 rounded-lg border border-edge bg-page px-3 py-1.5">
           <span class="text-[20px]">👨‍🌾</span>
@@ -168,8 +274,12 @@ function rainBadgeStyle(rain) {
                 levelLabels.province }}</th>
               <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-right">เกษตรกร (ราย)</th>
               <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-right">พื้นที่ (ไร่)</th>
-              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-center">ฝนเฉลี่ย {{
-                rainfallPeriodLabel }} (มม.)</th>
+              <th v-if="rainDisplayMode === 'forecast'" class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-center">
+                คาดการณ์ฝน & ความเสี่ยง
+              </th>
+              <th v-else class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-center">
+                ฝนเฉลี่ย {{ rainfallPeriodLabel }} (มม.)
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -181,10 +291,27 @@ function rainBadgeStyle(rain) {
               <td class="px-3 py-2 font-medium text-ink">{{ row.area_name }}</td>
               <td class="px-3 py-2 text-right text-ink">{{ formatNumber(row.total_farmers) }}</td>
               <td class="px-3 py-2 text-right text-ink">{{ formatRai(row.total_plant) }}</td>
-              <td class="px-3 py-2 text-center">
+              
+              <!-- Forecast Mode Column -->
+              <td v-if="rainDisplayMode === 'forecast'" class="px-3 py-2 text-center">
+                <div v-if="row.risk_level" class="flex items-center justify-center gap-1.5">
+                  <span class="text-[11px] font-medium text-ink">{{ row.forecast_rain }} มม.</span>
+                  <span
+                    class="inline-block rounded px-1.5 py-0.5 text-[10px] font-bold"
+                    :style="{ backgroundColor: riskBadgeStyle(row.risk_level).bg, color: riskBadgeStyle(row.risk_level).text }"
+                    :title="`ระดับความเสี่ยง: ${riskBadgeStyle(row.risk_level).label}`"
+                  >
+                    {{ riskBadgeStyle(row.risk_level).label }}
+                  </span>
+                </div>
+                <span v-else class="text-muted">-</span>
+              </td>
+
+              <!-- Actual Rain Mode Column -->
+              <td v-else class="px-3 py-2 text-center">
                 <span v-if="row.avg_rain !== null" class="inline-block rounded px-1.5 py-0.5 text-[11px] font-semibold"
                   :style="{ backgroundColor: rainBadgeStyle(row.avg_rain).bg, color: rainBadgeStyle(row.avg_rain).text }">
-                  {{ rainBadgeStyle(row.avg_rain).label }}
+                  {{ rainBadgeStyle(row.avg_rain).label }} มม.
                 </span>
                 <span v-else class="text-muted">-</span>
               </td>
@@ -193,8 +320,15 @@ function rainBadgeStyle(rain) {
         </table>
       </div>
 
-      <!-- Legend ฝน -->
-      <div class="mt-3 flex flex-wrap gap-2 text-[10px] text-muted border-t border-edge pt-2">
+      <!-- Legend ฝน / ความเสี่ยง -->
+      <div v-if="rainDisplayMode === 'forecast'" class="mt-3 flex flex-wrap gap-2 text-[10px] text-muted border-t border-edge pt-2">
+        <span class="font-medium text-ink">ระดับความเสี่ยงคาดการณ์:</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded inline-block" style="background:#dc3545"></span>วิกฤต</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded inline-block" style="background:#fd7e14"></span>เสี่ยงสูง</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded inline-block" style="background:#ffc107"></span>เฝ้าระวัง</span>
+        <span class="flex items-center gap-1"><span class="w-3 h-3 rounded inline-block" style="background:#198754"></span>ปกติ</span>
+      </div>
+      <div v-else class="mt-3 flex flex-wrap gap-2 text-[10px] text-muted border-t border-edge pt-2">
         <span class="font-medium text-ink">ระดับฝนเฉลี่ย {{ rainfallPeriodLabel }}:</span>
         <span class="flex items-center gap-1"><span class="w-3 h-3 rounded inline-block"
             style="background:#0dcaf0"></span>0 มม.</span>

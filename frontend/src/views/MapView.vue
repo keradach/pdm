@@ -42,6 +42,12 @@
                     <span class="font-bold text-white">{{ nationalRainSummary.avgRain ?
                         nationalRainSummary.avgRain + ' มม.' : '-' }}</span>
                 </div>
+                <div class="h-3 w-px bg-white/20"></div>
+                <div class="flex items-center space-x-1.5">
+                    <span class="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
+                    <span class="text-emerald-100">เสี่ยงวิกฤต:</span>
+                    <span class="font-bold text-white">{{ forecastSummary.critical_provinces || 0 }} จว.</span>
+                </div>
             </div>
 
             <!-- User / Menu Actions -->
@@ -103,12 +109,23 @@
                             <span>🗺️ ทั้งหมด</span>
                         </label>
 
+                        <!-- คาดการณ์ความเสี่ยงภัยพิบัติ (Disaster Early Warning) -->
+                        <label :class="[
+                            'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer select-none transition border',
+                            enabledLayers.forecast ? 'bg-red-700 text-white border-red-700 shadow-xs' : 'text-gray-600 hover:bg-gray-100 border-black/5'
+                        ]">
+                            <input type="checkbox" :checked="enabledLayers.forecast" @change="toggleForecastLayer"
+                                class="h-3.5 w-3.5 rounded accent-white cursor-pointer" />
+                            <span>⚡ คาดการณ์ความเสี่ยง</span>
+                            <span class="text-[10px] opacity-90">({{ (forecastSummary.critical_provinces || 0) + (forecastSummary.high_provinces || 0) }} จว.)</span>
+                        </label>
+
                         <!-- ฝนเฉลี่ย RiskMap -->
                         <label :class="[
                             'flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer select-none transition border',
                             enabledLayers.riskmap ? 'bg-cyan-700 text-white border-cyan-700' : 'text-gray-600 hover:bg-gray-100 border-black/5'
                         ]">
-                            <input type="checkbox" v-model="enabledLayers.riskmap" @change="syncMapLayers"
+                            <input type="checkbox" :checked="enabledLayers.riskmap" @change="toggleRiskmapLayer"
                                 class="h-3.5 w-3.5 rounded accent-white cursor-pointer" />
                             <span>🌧️ ฝน RiskMap</span>
                             <span class="text-[10px] opacity-80">({{ provinceList.length }})</span>
@@ -143,6 +160,78 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                                     d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
+                        </button>
+                    </div>
+
+                    <!-- BREADCRUMB / DRILL-DOWN LEVEL BAR (เจาะลึก: ทั้งประเทศ › อำเภอ › ตำบล) -->
+                    <div
+                        class="bg-white/95 backdrop-blur shadow-lg rounded-xl px-2.5 py-1.5 flex items-center flex-wrap gap-1.5 border border-emerald-100 pointer-events-auto text-xs self-start">
+                        <div class="flex items-center gap-1 text-[11px] font-semibold text-emerald-900 mr-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd" />
+                            </svg>
+                            <span>ขอบเขต:</span>
+                        </div>
+
+                        <!-- ทั้งประเทศ -->
+                        <button @click="navigateToLevel(0)"
+                            :class="[
+                                'px-2 py-0.5 rounded text-[11px] transition font-medium cursor-pointer flex items-center gap-1',
+                                currentLevel === 'province' ? 'bg-[#1f5c3f] text-white font-bold shadow-xs' : 'text-gray-700 hover:bg-emerald-50'
+                            ]">
+                            <span>🇹🇭 ทั้งประเทศ</span>
+                        </button>
+
+                        <!-- Path segments (จังหวัด / อำเภอ) -->
+                        <template v-for="(item, idx) in selectionPath" :key="item.code">
+                            <span class="text-gray-400 text-[10px]">›</span>
+                            <button @click="navigateToLevel(idx + 1)"
+                                :class="[
+                                    'px-2 py-0.5 rounded text-[11px] transition font-medium cursor-pointer',
+                                    idx === selectionPath.length - 1 ? 'bg-[#1f5c3f] text-white font-bold shadow-xs' : 'text-gray-700 hover:bg-emerald-50'
+                                ]">
+                                {{ item.name }}
+                            </button>
+                        </template>
+
+                        <!-- Drill up & Reset actions -->
+                        <div v-if="selectionPath.length > 0" class="flex items-center gap-1 ml-auto border-l pl-2 border-gray-200">
+                            <button @click="drillUpOneLevel" title="ย้อนกลับระดับก่อนหน้า"
+                                class="px-2 py-0.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-[10px] font-semibold flex items-center gap-0.5 transition cursor-pointer">
+                                <span>⬅ ย้อนกลับ</span>
+                            </button>
+                            <button @click="resetToCountryLevel" title="กลับสู่ระดับทั้งประเทศ"
+                                class="p-0.5 hover:bg-red-50 text-gray-400 hover:text-red-600 rounded transition cursor-pointer" aria-label="ล้างการเลือก">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Boundary loading indicator -->
+                        <div v-if="boundaryLoading" class="flex items-center gap-1 text-[10px] text-emerald-700 font-semibold ml-1">
+                            <div class="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span>กำลังโหลดขอบเขต...</span>
+                        </div>
+                    </div>
+
+                    <!-- FORECAST HORIZON SELECTOR (เมื่อเปิดเลเยอร์ คาดการณ์ความเสี่ยง) -->
+                    <div v-if="enabledLayers.forecast"
+                        class="bg-white/95 backdrop-blur shadow-lg rounded-xl p-1 flex items-center gap-1 border border-red-200 pointer-events-auto self-start text-[11px]">
+                        <span class="text-red-700 font-bold px-1.5 text-[10px] flex items-center gap-1">
+                            <span>⚡ คาดการณ์ล่วงหน้า:</span>
+                        </span>
+                        <button v-for="h in [
+                            { key: '1d', label: '24 ชม.' },
+                            { key: '3d', label: '3 วัน' },
+                            { key: '7d', label: '7 วัน' }
+                        ]" :key="h.key"
+                            @click="setForecastHorizon(h.key)"
+                            :class="[
+                                'px-2 py-0.5 rounded-lg transition font-medium',
+                                forecastHorizon === h.key ? 'bg-red-700 text-white shadow-xs font-bold' : 'text-gray-600 hover:bg-gray-100'
+                            ]">
+                            {{ h.label }}
                         </button>
                     </div>
 
@@ -215,8 +304,33 @@
                             <span>คำอธิบายสัญลักษณ์พิกัด</span>
                         </div>
 
+                        <!-- คำอธิบาย คาดการณ์ความเสี่ยงภัยพิบัติ -->
+                        <div v-if="enabledLayers.forecast">
+                            <p class="font-semibold text-gray-700 mb-1 text-[11px] flex items-center gap-1">
+                                <span>⚡ ระดับความเสี่ยงคาดการณ์ ({{ forecastHorizon === '1d' ? '24 ชม.' : (forecastHorizon === '7d' ? '7 วัน' : '3 วัน') }}):</span>
+                            </p>
+                            <div class="grid grid-cols-2 gap-1 text-[10px]">
+                                <div class="flex items-center space-x-1">
+                                    <span class="w-2.5 h-2.5 rounded-xs bg-[#dc3545]"></span>
+                                    <span>วิกฤต (น้ำท่วมขังแปลงพืช)</span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="w-2.5 h-2.5 rounded-xs bg-[#fd7e14]"></span>
+                                    <span>เสี่ยงสูง (เฝ้าระวังน้ำหลาก)</span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="w-2.5 h-2.5 rounded-xs bg-[#ffc107]"></span>
+                                    <span>เฝ้าระวัง (ติดตามสภาพอากาศ)</span>
+                                </div>
+                                <div class="flex items-center space-x-1">
+                                    <span class="w-2.5 h-2.5 rounded-xs bg-[#10b981]"></span>
+                                    <span>ปกติ (ความเสี่ยงต่ำ)</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- คำอธิบาย RiskMap ฝนเฉลี่ยสะสม -->
-                        <div v-if="enabledLayers.riskmap">
+                        <div v-if="enabledLayers.riskmap" :class="enabledLayers.forecast ? 'pt-1 border-t border-gray-100' : ''">
                             <p class="font-semibold text-gray-600 mb-1 text-[11px]">🌧️ ฝนเฉลี่ยสะสม ({{ currentPeriodShortLabel }}):</p>
                             <div class="grid grid-cols-2 gap-1 text-[10px]">
                                 <div class="flex items-center space-x-1">
@@ -306,6 +420,134 @@
                             </svg>
                         </button>
                     </a>
+
+                    <!-- DRILL-DOWN STATUS BADGE IN SIDEBAR -->
+                    <div v-if="selectionPath.length > 0" class="p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 text-xs">
+                        <div class="flex items-center justify-between font-bold text-emerald-900 mb-1">
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                                <span>ขอบเขต: {{ currentLevel === 'district' ? 'ระดับอำเภอ' : 'ระดับตำบล' }}</span>
+                            </span>
+                            <button @click="drillUpOneLevel" class="text-[11px] text-emerald-700 hover:text-emerald-900 hover:underline cursor-pointer flex items-center gap-0.5 font-semibold">
+                                <span>ย้อนกลับ ⬆</span>
+                            </button>
+                        </div>
+                        <div class="text-[11px] text-emerald-800 font-medium">
+                            {{ selectionPath.map(p => p.name).join(' › ') }}
+                        </div>
+                        <div v-if="noneProduceLoading" class="text-[10px] text-emerald-600 mt-1.5 flex items-center gap-1.5">
+                            <div class="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div>
+                            <span>กำลังดึงข้อมูลทะเบียนแปลงพืชในพื้นที่...</span>
+                        </div>
+                        <div v-else-if="noneProduceMap.size > 0" class="text-[10px] text-gray-600 mt-1.5 flex items-center justify-between">
+                            <span>แปลงพืชยังไม่เก็บเกี่ยว:</span>
+                            <b class="text-emerald-800">{{ noneProduceMap.size }} {{ currentLevel === 'district' ? 'อำเภอ' : 'ตำบล' }}</b>
+                        </div>
+                    </div>
+
+                    <!-- SECTION 0: คาดการณ์ความเสี่ยงภัยพิบัติล่วงหน้า (Early Warning System) -->
+                    <div class="bg-red-50/70 p-3 rounded-xl border border-red-200">
+                        <div class="flex items-center justify-between mb-2">
+                            <h3 class="font-bold text-red-900 text-sm flex items-center space-x-1.5">
+                                <span class="relative flex h-2.5 w-2.5">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
+                                </span>
+                                <span>⚡ คาดการณ์ภัยพิบัติล่วงหน้า</span>
+                            </h3>
+                            <span class="text-[10px] text-red-700 bg-red-100 px-2 py-0.5 rounded-full font-bold">
+                                {{ forecastHorizon === '1d' ? '24 ชม.' : (forecastHorizon === '7d' ? '7 วัน' : '3 วัน') }}
+                            </span>
+                        </div>
+
+                        <!-- Horizon buttons in Sidebar -->
+                        <div class="grid grid-cols-3 gap-1 mb-2.5">
+                            <button v-for="h in [
+                                { key: '1d', label: '24 ชม.' },
+                                { key: '3d', label: '3 วัน' },
+                                { key: '7d', label: '7 วัน' }
+                            ]" :key="h.key" type="button"
+                                @click="setForecastHorizon(h.key)"
+                                :class="[
+                                    'py-1 text-[11px] rounded-lg transition font-medium text-center border cursor-pointer',
+                                    forecastHorizon === h.key
+                                        ? 'bg-red-700 text-white border-red-700 shadow-xs font-bold'
+                                        : 'bg-white hover:bg-red-50 text-gray-700 border-red-200'
+                                ]">
+                                {{ h.label }}
+                            </button>
+                        </div>
+
+                        <!-- Methodology & Criteria Collapsible -->
+                        <details class="text-[11px] text-gray-700 bg-white/90 rounded-lg p-2 border border-red-200 mb-2.5 cursor-pointer">
+                            <summary class="font-bold text-red-950 list-none flex items-center justify-between select-none">
+                                <span class="flex items-center gap-1">ℹ️ วิธีประเมินความเสี่ยง & มาตรวัด (ระดับ{{ currentLevel === 'subdistrict' ? 'ตำบล' : (currentLevel === 'district' ? 'อำเภอ' : 'จังหวัด') }})</span>
+                                <span class="text-[10px] text-red-700 font-normal">▼ ดูเกณฑ์</span>
+                            </summary>
+                            <div class="mt-2 space-y-1.5 text-[10px] text-gray-600 border-t border-red-100 pt-1.5 leading-relaxed">
+                                <p><b>แหล่งข้อมูล:</b> ฝนสะสมคาดการณ์ (Open-Meteo) × พื้นที่พืชยังไม่เก็บเกี่ยว (eFarmer DOAE)</p>
+                                <div class="space-y-1">
+                                    <div class="flex items-start gap-1"><span class="w-2 h-2 rounded-full bg-red-600 shrink-0 mt-1"></span><span><b class="text-red-700">วิกฤต:</b> ฝน ≥ {{ forecastCriteria.critRain }} มม. หรือ ≥ {{ forecastCriteria.highRain }} มม. ร่วมกับพืช ≥ {{ forecastCriteria.plantCrit }} (เสี่ยงน้ำท่วมขังสูงมาก)</span></div>
+                                    <div class="flex items-start gap-1"><span class="w-2 h-2 rounded-full bg-orange-500 shrink-0 mt-1"></span><span><b class="text-orange-700">เสี่ยงสูง:</b> ฝน ≥ {{ forecastCriteria.highRain }} มม. หรือ ≥ {{ forecastCriteria.watchRain }} มม. ร่วมกับพืช ≥ {{ forecastCriteria.plantHigh }} (เฝ้าระวังน้ำหลาก)</span></div>
+                                    <div class="flex items-start gap-1"><span class="w-2 h-2 rounded-full bg-amber-500 shrink-0 mt-1"></span><span><b class="text-amber-700">เฝ้าระวัง:</b> ฝน ≥ {{ forecastCriteria.watchRain }} มม. (ติดตามสภาพอากาศ)</span></div>
+                                    <div class="flex items-start gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600 shrink-0 mt-1"></span><span><b class="text-emerald-700">ปกติ:</b> ฝน &lt; {{ forecastCriteria.watchRain }} มม. (ความเสี่ยงต่ำ)</span></div>
+                                </div>
+                                <p class="text-[9px] text-gray-400 italic pt-0.5">*เกณฑ์ปรับขนาดตามระดับพื้นที่และช่วงเวลาอัตโนมัติ</p>
+                            </div>
+                        </details>
+
+                        <!-- Forecast Summary Stats -->
+                        <div class="grid grid-cols-2 gap-2 text-center mb-2.5">
+                            <div class="bg-white p-2 rounded-lg border border-red-100 shadow-2xs">
+                                <p class="text-[10px] text-red-700 font-medium">
+                                    {{ currentLevel === 'subdistrict' ? 'ตำบลวิกฤต (แดง)' : (currentLevel === 'district' ? 'อำเภอวิกฤต (แดง)' : 'จังหวัดวิกฤต (แดง)') }}
+                                </p>
+                                <p class="text-base font-bold text-red-700 mt-0.5">
+                                    {{ forecastSummary.critical_areas ?? forecastSummary.critical_provinces ?? 0 }}
+                                    <span class="text-[10px] font-normal">{{ currentLevel === 'subdistrict' ? 'ตำบล' : (currentLevel === 'district' ? 'อำเภอ' : 'จว.') }}</span>
+                                </p>
+                            </div>
+                            <div class="bg-white p-2 rounded-lg border border-orange-100 shadow-2xs">
+                                <p class="text-[10px] text-orange-800 font-medium">
+                                    {{ currentLevel === 'subdistrict' ? 'ตำบลเสี่ยงสูง (ส้ม)' : (currentLevel === 'district' ? 'อำเภอเสี่ยงสูง (ส้ม)' : 'จังหวัดเสี่ยงสูง (ส้ม)') }}
+                                </p>
+                                <p class="text-base font-bold text-orange-800 mt-0.5">
+                                    {{ forecastSummary.high_areas ?? forecastSummary.high_provinces ?? 0 }}
+                                    <span class="text-[10px] font-normal">{{ currentLevel === 'subdistrict' ? 'ตำบล' : (currentLevel === 'district' ? 'อำเภอ' : 'จว.') }}</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="bg-white p-2 rounded-lg border border-red-100 mb-2.5 text-xs flex justify-between items-center">
+                            <span class="text-gray-600 text-[11px]">🌾 พืชเสี่ยงกระทบรวม:</span>
+                            <span class="font-bold text-red-800">{{ Number(forecastSummary.total_at_risk_rai || 0).toLocaleString('th-TH') }} ไร่</span>
+                        </div>
+
+                        <!-- Top Alerts list -->
+                        <div v-if="forecastTopAlerts.length > 0" class="space-y-1.5">
+                            <p class="text-[11px] font-bold text-gray-700 mb-1">พื้นที่เฝ้าระวังสูงสุด (คลิกเพื่อซูม):</p>
+                            <div v-for="item in forecastTopAlerts" :key="item.id"
+                                @click="flyToAreaByCode(item.id)"
+                                class="bg-white p-2 rounded-lg border border-red-100 hover:border-red-400 hover:bg-red-50/50 cursor-pointer transition text-xs flex flex-col gap-1 shadow-2xs">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-gray-800">
+                                        {{ item.level === 'subdistrict' ? 'ต.' : (item.level === 'district' ? 'อ.' : 'จ.') }}{{ item.area_name || item.province_name }}
+                                    </span>
+                                    <span :class="[
+                                        'px-1.5 py-0.2 rounded text-[10px] font-bold',
+                                        item.risk_level === 'critical' ? 'bg-red-600 text-white' : 'bg-orange-500 text-white'
+                                    ]">{{ item.risk_level === 'critical' ? 'วิกฤต' : 'เสี่ยงสูง' }}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-[11px] text-gray-500">
+                                    <span>ฝน: <strong class="text-gray-700">{{ item.forecast_rain }} มม.</strong></span>
+                                    <span>พืช: <strong class="text-gray-700">{{ item.primary_crop }}</strong></span>
+                                </div>
+                                <p class="text-[10px] text-gray-600 bg-gray-50 rounded p-1">
+                                    💡 {{ item.recommendation }}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- SECTION 1: RISKMAP RAINFALL DATA (DOAE API REALTIME) -->
                     <div>
@@ -502,16 +744,402 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import api from '@/services/api';
 import provinceBoundaries from '@/assets/th_adm1.json';
+import districtBoundariesUrl from '@/assets/th_adm2.json?url';
+import subdistrictBoundariesUrl from '@/assets/th_adm3.json?url';
+import { getNoneProduceDisplayRows } from '@/utils/noneProduce';
 
 // ควบคุมการ เปิด/ปิด แผงข้อมูลด้านล่างในโหมดมือถือ (Mobile Drawer Toggle)
 const isSidebarOpen = ref(false);
 
 // สถานะการเปิดแสดงของแต่ละเลเยอร์ (checkbox) - แสดงหลายเลเยอร์พร้อมกันได้
 const enabledLayers = reactive({
-    riskmap: true,
-    dams: true,
-    temperature: true,
+    forecast: true, // คาดการณ์ความเสี่ยงภัยพิบัติล่วงหน้า
+    riskmap: false, // ฝนเฉลี่ยสะสมจาก RiskMap
+    dams: true,     // เขื่อน
+    temperature: true, // อุณหภูมิสถานี
 });
+
+// สถานะการเจาะลึกระดับพื้นที่ (Administrative Drill-down: Province -> District -> Subdistrict)
+const currentLevel = ref('province'); // 'province' | 'district' | 'subdistrict'
+const parentAreaCode = ref(null);     // รหัสพื้นที่แม่ (e.g. 'TH65', 'TH6504')
+const selectionPath = ref([]);        // [{ code, name, level, pcode }]
+const selectedFeatureCode = ref(null);// รหัสพื้นที่ที่เลือกในระดับปัจจุบัน
+const boundaryLoading = ref(false);   // กำลังดาวน์โหลด GeoJSON หรือไม่
+const boundaryError = ref(null);
+let boundaryRenderVersion = 0;
+let districtBoundaries = null;
+let subdistrictBoundaries = null;
+const boundariesCacheName = 'pdm-admin-boundaries-v1';
+
+// ข้อมูลแปลงพืชยังไม่เก็บเกี่ยวสำหรับระดับที่เลือก (eFarmer)
+const noneProduceMap = ref(new Map());
+const noneProduceLoading = ref(false);
+
+// แคชและการโหลดขอบเขตแผนที่ (Cache Storage API)
+const loadBoundaries = async (url) => {
+    let cache;
+    if ('caches' in window) {
+        try {
+            cache = await window.caches.open(boundariesCacheName);
+            const cachedResponse = await cache.match(url);
+            if (cachedResponse) {
+                try {
+                    return await cachedResponse.json();
+                } catch (error) {
+                    await cache.delete(url);
+                    console.warn('Discarding invalid cached map boundaries:', error);
+                }
+            }
+        } catch (error) {
+            console.warn('Map boundary cache is unavailable; loading from network:', error);
+        }
+    }
+
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to load map boundaries (HTTP ${response.status})`);
+    }
+
+    const responseToCache = response.clone();
+    const boundaries = await response.json();
+    if (cache) {
+        try {
+            await cache.put(url, responseToCache);
+        } catch (error) {
+            console.warn('Unable to cache map boundaries:', error);
+        }
+    }
+    return boundaries;
+};
+
+// การจัดการรหัสพื้นที่
+const normalizeProvinceCode = (code) => String(code ?? '').replace(/^TH/i, '').padStart(2, '0');
+const normalizeAreaCode = (code) => String(code ?? '').replace(/^TH/i, '');
+const normalizeAdminCode = normalizeProvinceCode;
+
+const featureAreaCode = (properties) => {
+    if (currentLevel.value === 'province') {
+        return properties.ADM1_PCODE;
+    }
+    if (currentLevel.value === 'district') {
+        return properties.ADM2_PCODE;
+    }
+    return properties.ADM3_PCODE;
+};
+
+// ดึงข้อมูลแปลงพืชยังไม่เก็บเกี่ยวสำหรับระดับปัจจุบัน (eFarmer)
+const fetchNoneProduceForCurrentLevel = async () => {
+    if (currentLevel.value === 'province') {
+        noneProduceMap.value.clear();
+        return;
+    }
+    noneProduceLoading.value = true;
+    try {
+        const areaCode = normalizeAreaCode(parentAreaCode.value);
+        const res = await api.getNoneProduce({
+            level: currentLevel.value,
+            areaCode: areaCode,
+        });
+        const rawData = Array.isArray(res?.data) ? res.data : (Array.isArray(res?.data?.data) ? res.data.data : (Array.isArray(res) ? res : []));
+        const rows = getNoneProduceDisplayRows(
+            rawData,
+            currentLevel.value,
+            areaCode
+        );
+        const mapObj = new Map();
+        rows.forEach(r => {
+            if (r.area_code) mapObj.set(normalizeAreaCode(r.area_code), r);
+        });
+        noneProduceMap.value = mapObj;
+        if (riskmapLayer) {
+            riskmapLayer.setStyle(getBoundaryStyle);
+        }
+    } catch (e) {
+        console.warn('Failed to load noneProduce data for level:', currentLevel.value, e);
+    } finally {
+        noneProduceLoading.value = false;
+    }
+};
+
+// เรนเดอร์ขอบเขตตามระดับพื้นที่
+const renderBoundaries = async () => {
+    if (!map || !riskmapLayer) return;
+    const version = ++boundaryRenderVersion;
+    boundaryLoading.value = true;
+    boundaryError.value = null;
+
+    try {
+        let boundaries = provinceBoundaries;
+        const level = currentLevel.value;
+
+        if (level === 'district') {
+            if (!districtBoundaries) {
+                districtBoundaries = await loadBoundaries(districtBoundariesUrl);
+            }
+            boundaries = districtBoundaries;
+        } else if (level === 'subdistrict') {
+            if (!subdistrictBoundaries) {
+                subdistrictBoundaries = await loadBoundaries(subdistrictBoundariesUrl);
+            }
+            boundaries = subdistrictBoundaries;
+        }
+
+        if (version !== boundaryRenderVersion) return;
+
+        riskmapLayer.clearLayers();
+        provinceLayersMap.clear();
+
+        const parentCode = normalizeAreaCode(parentAreaCode.value);
+        const childBoundaryField = level === 'district' ? 'ADM1_PCODE' : 'ADM2_PCODE';
+
+        const visibleBoundaries = level === 'province'
+            ? boundaries
+            : {
+                ...boundaries,
+                features: (boundaries.features || []).filter((feature) =>
+                    normalizeAreaCode(feature.properties[childBoundaryField]) === parentCode
+                ),
+            };
+
+        riskmapLayer.addData(visibleBoundaries);
+        riskmapLayer.setStyle(getBoundaryStyle);
+
+        // จัดมุมมองแผนที่
+        if (level === 'province') {
+            map.flyTo([13.7367, 100.5231], 6, { duration: 1 });
+        } else {
+            const bounds = riskmapLayer.getBounds();
+            if (bounds && bounds.isValid()) {
+                map.fitBounds(bounds, { maxZoom: level === 'subdistrict' ? 12 : 10, padding: [30, 30] });
+            }
+        }
+    } catch (err) {
+        if (version !== boundaryRenderVersion) return;
+        boundaryError.value = 'ไม่สามารถโหลดข้อมูลขอบเขตพื้นที่ได้';
+        console.error('Error rendering boundaries:', err);
+    } finally {
+        if (version === boundaryRenderVersion) {
+            boundaryLoading.value = false;
+        }
+    }
+};
+
+// การนำทางระดับพื้นที่ผ่าน Breadcrumb
+const navigateToLevel = async (index) => {
+    if (index === 0) {
+        selectionPath.value = [];
+        currentLevel.value = 'province';
+        parentAreaCode.value = null;
+        selectedFeatureCode.value = null;
+        selectedProvinceCode.value = null;
+        noneProduceMap.value.clear();
+        await renderBoundaries();
+        fetchForecastForCurrentLevel();
+    } else if (index === 1 && selectionPath.value.length >= 1) {
+        selectionPath.value = [selectionPath.value[0]];
+        currentLevel.value = 'district';
+        parentAreaCode.value = selectionPath.value[0].pcode;
+        selectedFeatureCode.value = null;
+        await renderBoundaries();
+        fetchNoneProduceForCurrentLevel();
+        fetchForecastForCurrentLevel();
+    } else if (index === 2 && selectionPath.value.length >= 2) {
+        selectionPath.value = [selectionPath.value[0], selectionPath.value[1]];
+        currentLevel.value = 'subdistrict';
+        parentAreaCode.value = selectionPath.value[1].pcode;
+        selectedFeatureCode.value = null;
+        await renderBoundaries();
+        fetchNoneProduceForCurrentLevel();
+        fetchForecastForCurrentLevel();
+    }
+};
+
+const drillUpOneLevel = () => {
+    if (currentLevel.value === 'subdistrict') {
+        navigateToLevel(1);
+    } else if (currentLevel.value === 'district') {
+        navigateToLevel(0);
+    }
+};
+
+const resetToCountryLevel = () => {
+    navigateToLevel(0);
+};
+
+// เมื่อคลิกที่รูปแปลงขอบเขต (Province -> District -> Subdistrict)
+const onFeatureClick = async (feature, layer) => {
+    if (currentLevel.value === 'province') {
+        const pcode = feature.properties.ADM1_PCODE;
+        const name = feature.properties.ADM1_TH || feature.properties.ADM1_EN || 'ไม่ระบุ';
+        const code = normalizeProvinceCode(pcode);
+
+        selectedProvinceCode.value = code;
+        selectionPath.value = [{ code, name, level: 'province', pcode }];
+        parentAreaCode.value = pcode;
+        currentLevel.value = 'district';
+        selectedFeatureCode.value = null;
+
+        await renderBoundaries();
+        fetchNoneProduceForCurrentLevel();
+        fetchForecastForCurrentLevel();
+    } else if (currentLevel.value === 'district') {
+        const pcode = feature.properties.ADM2_PCODE;
+        const name = feature.properties.ADM2_TH || feature.properties.ADM2_EN || 'ไม่ระบุ';
+        const code = normalizeAreaCode(pcode);
+
+        selectionPath.value = [
+            selectionPath.value[0],
+            { code, name, level: 'district', pcode }
+        ];
+        parentAreaCode.value = pcode;
+        currentLevel.value = 'subdistrict';
+        selectedFeatureCode.value = null;
+
+        await renderBoundaries();
+        fetchNoneProduceForCurrentLevel();
+        fetchForecastForCurrentLevel();
+    } else if (currentLevel.value === 'subdistrict') {
+        const pcode = feature.properties.ADM3_PCODE;
+        selectedFeatureCode.value = pcode;
+        if (riskmapLayer) {
+            riskmapLayer.setStyle(getBoundaryStyle);
+        }
+        if (map && layer.getBounds && layer.getBounds().isValid()) {
+            map.fitBounds(layer.getBounds(), { maxZoom: 13, padding: [40, 40] });
+        }
+    }
+};
+
+// ข้อมูลคาดการณ์ความเสี่ยงภัยพิบัติล่วงหน้า (Early Warning System)
+const rawForecastData = ref(null);
+const forecastHorizon = ref('3d');
+
+const forecastMap = computed(() => {
+    const mapObj = new Map();
+    const list = rawForecastData.value?.areas || rawForecastData.value?.provinces || [];
+    list.forEach(record => {
+        if (record) {
+            if (record.admin_code != null) mapObj.set(normalizeAdminCode(record.admin_code), record);
+            if (record.code != null) mapObj.set(normalizeAdminCode(record.code), record);
+            if (record.area_code != null) mapObj.set(normalizeAdminCode(record.area_code), record);
+        }
+    });
+    return mapObj;
+});
+
+const forecastSummary = computed(() => rawForecastData.value?.summary || {
+    critical_areas: 0,
+    high_areas: 0,
+    watch_areas: 0,
+    normal_areas: 0,
+    critical_provinces: 0,
+    high_provinces: 0,
+    watch_provinces: 0,
+    normal_provinces: 0,
+    total_at_risk_rai: 0,
+    total_at_risk_farmers: 0,
+    peak_risk_window: '-',
+});
+
+const forecastTopAlerts = computed(() => rawForecastData.value?.top_alerts || []);
+
+const forecastCriteria = computed(() => {
+    const lvl = currentLevel.value || 'province';
+    const h = forecastHorizon.value || '3d';
+    const plantCrit = lvl === 'subdistrict' ? '800 ไร่' : (lvl === 'district' ? '4,000 ไร่' : '2.5 หมื่นไร่');
+    const plantHigh = lvl === 'subdistrict' ? '400 ไร่' : (lvl === 'district' ? '2,500 ไร่' : '2 หมื่นไร่');
+    let critRain = 85, highRain = 50, watchRain = 25;
+    if (lvl === 'subdistrict') {
+        critRain = h === '1d' ? 50 : (h === '7d' ? 95 : 65);
+        highRain = h === '1d' ? 30 : (h === '7d' ? 60 : 38);
+        watchRain = h === '1d' ? 15 : (h === '7d' ? 30 : 18);
+    } else if (lvl === 'district') {
+        critRain = h === '1d' ? 55 : (h === '7d' ? 105 : 75);
+        highRain = h === '1d' ? 35 : (h === '7d' ? 68 : 45);
+        watchRain = h === '1d' ? 18 : (h === '7d' ? 35 : 22);
+    } else {
+        critRain = h === '1d' ? 65 : (h === '7d' ? 120 : 85);
+        highRain = h === '1d' ? 40 : (h === '7d' ? 75 : 50);
+        watchRain = h === '1d' ? 20 : (h === '7d' ? 40 : 25);
+    }
+    return {
+        critRain,
+        highRain,
+        watchRain,
+        plantCrit,
+        plantHigh,
+    };
+});
+
+const fetchForecastForCurrentLevel = async () => {
+    try {
+        const level = currentLevel.value;
+        let areaCode = null;
+        if (level === 'district') {
+            areaCode = selectedProvinceCode.value || normalizeProvinceCode(parentAreaCode.value);
+        } else if (level === 'subdistrict') {
+            areaCode = normalizeAreaCode(parentAreaCode.value);
+        }
+        const res = await api.getDisasterForecast(forecastHorizon.value, level, areaCode);
+        rawForecastData.value = res;
+        if (riskmapLayer) {
+            riskmapLayer.setStyle(getBoundaryStyle);
+        }
+    } catch (e) {
+        console.warn('Failed to load forecast data for level:', currentLevel.value, e);
+    }
+};
+
+const setForecastHorizon = async (h) => {
+    forecastHorizon.value = h;
+    await fetchForecastForCurrentLevel();
+};
+
+const getForecastRiskColor = (level) => {
+    switch (level) {
+        case 'critical': return '#dc3545';
+        case 'high': return '#fd7e14';
+        case 'watch': return '#ffc107';
+        case 'normal': return '#10b981';
+        default: return '#9ca3af';
+    }
+};
+
+const toggleForecastLayer = () => {
+    enabledLayers.forecast = !enabledLayers.forecast;
+    if (enabledLayers.forecast) {
+        enabledLayers.riskmap = false;
+    }
+    syncMapLayers();
+};
+
+const toggleRiskmapLayer = () => {
+    enabledLayers.riskmap = !enabledLayers.riskmap;
+    if (enabledLayers.riskmap) {
+        enabledLayers.forecast = false;
+    }
+    syncMapLayers();
+};
+
+const flyToAreaByCode = (code) => {
+    const areaCodeNorm = normalizeAreaCode(code);
+    const layer = provinceLayersMap.get(areaCodeNorm);
+    if (layer && layer.getBounds && layer.getBounds().isValid()) {
+        map.fitBounds(layer.getBounds(), { maxZoom: currentLevel.value === 'subdistrict' ? 13 : 11, padding: [30, 30] });
+        setTimeout(() => {
+            layer.openTooltip();
+        }, 500);
+        return;
+    }
+    const prov = provinceList.value.find(p => p.code === normalizeAdminCode(code));
+    if (prov) {
+        flyToProvince(prov);
+    }
+};
+
+const flyToProvinceByCode = (code) => {
+    flyToAreaByCode(code);
+};
 
 const searchQuery = ref('');
 const isLoading = ref(false);
@@ -576,8 +1204,6 @@ const getRainAvgColor = (val) => {
     }
     return '#0dcaf0';
 };
-
-const normalizeAdminCode = (code) => String(code ?? '').replace(/^TH/i, '').padStart(2, '0');
 
 // จัดเก็บข้อมูลฝนเฉลี่ยเป็น Map โดยใช้รหัสจังหวัดเป็น key
 const rainAverageMap = computed(() => {
@@ -867,59 +1493,182 @@ const getTempColor = (temp) => {
     return '#dc2626'; // ร้อนจัด
 };
 
-// สไตล์ของขอบเขตจังหวัด RiskMap
+// สไตล์ของขอบเขตพื้นที่ RiskMap / คาดการณ์ความเสี่ยง
 const getBoundaryStyle = (feature) => {
-    const provinceCode = normalizeAdminCode(feature.properties.ADM1_PCODE);
-    const rainRecord = rainAverageMap.value.get(provinceCode);
-    const val = rainRecord && rainRecord[selectedRainPeriod.value] != null ? Number(rainRecord[selectedRainPeriod.value]) : null;
-    const isSelected = selectedProvinceCode.value === provinceCode;
+    const pcode = featureAreaCode(feature.properties);
+    const pcodeNorm = normalizeAreaCode(pcode);
+    const provincePCode = normalizeProvinceCode(feature.properties.ADM1_PCODE);
+    const isSelected = (selectedFeatureCode.value != null && 
+        pcodeNorm === normalizeAreaCode(selectedFeatureCode.value)) ||
+        (selectedProvinceCode.value != null && provincePCode === selectedProvinceCode.value);
+
+    // หากเปิดโหมดคาดการณ์ความเสี่ยงภัยพิบัติ (forecast)
+    if (enabledLayers.forecast) {
+        const forecastRecord = forecastMap.value.get(pcodeNorm) || forecastMap.value.get(provincePCode);
+        const color = forecastRecord ? getForecastRiskColor(forecastRecord.risk_level) : '#9ca3af';
+        return {
+            pane: 'riskmapPane',
+            color: isSelected ? '#0f172a' : '#ffffff',
+            weight: isSelected ? 3 : (currentLevel.value === 'province' ? 1 : 1.5),
+            fillColor: color,
+            fillOpacity: isSelected ? 0.92 : (forecastRecord ? 0.75 : 0.25),
+        };
+    }
+
+    // โหมดฝนเฉลี่ยสะสม (riskmap)
+    const forecastRecord = forecastMap.value.get(code);
+    const riskmapRecord = rainAverageMap.value.get(code);
+    const forecastRain = (currentLevel.value !== 'province' && forecastRecord)
+        ? (selectedRainPeriod.value === 'avg_7d' ? (forecastRecord.rain_7d ?? forecastRecord.forecast_rain)
+           : selectedRainPeriod.value === 'avg_3d' ? (forecastRecord.rain_3d ?? forecastRecord.forecast_rain)
+           : (forecastRecord.rain_1d ?? forecastRecord.forecast_rain))
+        : null;
+    const rainRecord = riskmapRecord || rainAverageMap.value.get(provincePCode);
+    const val = forecastRain != null
+        ? Number(forecastRain)
+        : (rainRecord && rainRecord[selectedRainPeriod.value] != null ? Number(rainRecord[selectedRainPeriod.value]) : null);
 
     return {
         pane: 'riskmapPane',
         color: isSelected ? '#0f172a' : '#ffffff',
-        weight: isSelected ? 2.5 : 1,
+        weight: isSelected ? 3 : (currentLevel.value === 'province' ? 1 : 1.5),
         fillColor: val == null ? '#9ca3af' : getRainAvgColor(val),
-        fillOpacity: isSelected ? 0.85 : (val == null ? 0.25 : 0.65),
+        fillOpacity: isSelected ? 0.9 : (val == null ? 0.25 : 0.65),
     };
 };
 
-// เนื้อหา Tooltip สำหรับจังหวัด
-const getProvinceTooltipContent = (provinceCode, provinceName, feature) => {
-    const rainRecord = rainAverageMap.value.get(provinceCode);
-    const periodLabel = currentPeriodLabel.value;
-    const val = rainRecord && rainRecord[selectedRainPeriod.value] != null 
-        ? Number(rainRecord[selectedRainPeriod.value]).toFixed(1) 
+// เนื้อหา Tooltip สำหรับพื้นที่ (รองรับทั้งระดับ จังหวัด, อำเภอ และตำบล)
+const getBoundaryTooltipContent = (feature) => {
+    const props = feature.properties;
+    const provinceCode = normalizeProvinceCode(props.ADM1_PCODE);
+    const code = normalizeAreaCode(featureAreaCode(props));
+    const level = currentLevel.value;
+
+    let title = '';
+    let subtitle = '';
+    let drillPrompt = '';
+
+    if (level === 'province') {
+        title = `จ.${props.ADM1_TH || props.ADM1_EN}`;
+        subtitle = `(${props.ADM1_PCODE || ''})`;
+        drillPrompt = '👆 คลิกเพื่อเจาะลึกระดับอำเภอ';
+    } else if (level === 'district') {
+        title = `อ.${props.ADM2_TH || props.ADM2_EN}`;
+        subtitle = `จ.${props.ADM1_TH || ''} (${props.ADM2_PCODE || ''})`;
+        drillPrompt = '👆 คลิกเพื่อเจาะลึกระดับตำบล';
+    } else {
+        title = `ต.${props.ADM3_TH || props.ADM3_EN}`;
+        subtitle = `อ.${props.ADM2_TH || ''} จ.${props.ADM1_TH || ''} (${props.ADM3_PCODE || ''})`;
+        drillPrompt = '📍 ระดับตำบล';
+    }
+
+    const noneProduceItem = noneProduceMap.value.get(code);
+
+    if (enabledLayers.forecast) {
+        const forecastRecord = forecastMap.value.get(code) || forecastMap.value.get(provinceCode);
+        const horizonLabel = forecastHorizon.value === '1d' ? '24 ชม.' : (forecastHorizon.value === '7d' ? '7 วัน' : '3 วัน');
+        const riskLabel = {
+            critical: '<span style="color:#dc3545;font-weight:bold;">🔴 วิกฤต (เสี่ยงน้ำท่วมขังสูง)</span>',
+            high: '<span style="color:#fd7e14;font-weight:bold;">🟠 เสี่ยงสูง</span>',
+            watch: '<span style="color:#d97706;font-weight:bold;">🟡 เฝ้าระวัง</span>',
+            normal: '<span style="color:#10b981;font-weight:bold;">🟢 ปกติ</span>',
+        }[forecastRecord?.risk_level] || '<span style="color:#9ca3af;">ไม่มีข้อมูล</span>';
+
+        const unharvestedVal = forecastRecord?.unharvested_rai ?? noneProduceItem?.total_plant;
+        const unharvestedFarmersVal = forecastRecord?.unharvested_farmers ?? noneProduceItem?.total_farmers;
+
+        return `
+            <div style="font-family: sans-serif; min-width: 210px; font-size: 12px; line-height: 1.5; padding: 2px;">
+                <div style="font-weight: 700; font-size: 13px; color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                    <span>${title}</span>
+                    <span style="font-size: 10px; color: #6b7280; font-weight: normal;">${subtitle}</span>
+                </div>
+                <div style="margin-bottom: 4px;">
+                    ระดับความเสี่ยง: ${riskLabel}
+                </div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
+                    <span style="color: #4b5563;">ฝนคาดการณ์ (${horizonLabel}):</span>
+                    <strong style="color: #0369a1; font-size: 13px;">${forecastRecord ? forecastRecord.forecast_rain + ' มม.' : '-'}</strong>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
+                    <span style="color: #4b5563;">พื้นที่พืชยังไม่เก็บเกี่ยว:</span>
+                    <strong style="color: #111827;">${unharvestedVal != null ? Number(unharvestedVal).toLocaleString('th-TH') + ' ไร่' : '-'}</strong>
+                </div>
+                ${unharvestedFarmersVal != null ? `
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 2px;">
+                    <span style="color: #4b5563;">เกษตรกรผู้เพาะปลูก:</span>
+                    <strong style="color: #111827;">${Number(unharvestedFarmersVal).toLocaleString('th-TH')} ราย</strong>
+                </div>
+                ` : ''}
+                <div style="font-size: 11px; color: #4b5563; margin-bottom: 3px;">
+                    พืชเศรษฐกิจหลัก: <b>${forecastRecord?.primary_crop || (level === 'province' ? 'ข้าวนาปี' : 'ข้าว/พืชไร่')}</b>
+                </div>
+
+                ${forecastRecord?.recommendation ? `
+                <div style="font-size: 10px; color: #1f2937; background: #fef2f2; border: 1px solid #fee2e2; border-radius: 4px; padding: 3px 5px; margin-top: 4px;">
+                    💡 ${forecastRecord.recommendation}
+                </div>` : ''}
+
+                <div style="font-size: 10px; color: #059669; font-weight: 600; margin-top: 4px; border-top: 1px dashed #e5e7eb; padding-top: 3px;">
+                    ${drillPrompt}
+                </div>
+            </div>
+        `;
+    }
+
+    // โหมดฝน RiskMap
+    const forecastRecord = forecastMap.value.get(code);
+    const riskmapRecord = rainAverageMap.value.get(code);
+    const forecastRain = (level !== 'province' && forecastRecord)
+        ? (selectedRainPeriod.value === 'avg_7d' ? (forecastRecord.rain_7d ?? forecastRecord.forecast_rain)
+           : selectedRainPeriod.value === 'avg_3d' ? (forecastRecord.rain_3d ?? forecastRecord.forecast_rain)
+           : (forecastRecord.rain_1d ?? forecastRecord.forecast_rain))
         : null;
+    const rainRecord = riskmapRecord || rainAverageMap.value.get(provinceCode);
+    const periodLabel = currentPeriodLabel.value;
+    const val = forecastRain != null
+        ? Number(forecastRain).toFixed(1)
+        : (rainRecord && rainRecord[selectedRainPeriod.value] != null 
+            ? Number(rainRecord[selectedRainPeriod.value]).toFixed(1) 
+            : null);
     const stations = rainRecord?.station_count ?? '-';
     const color = val != null ? getRainAvgColor(Number(val)) : '#9ca3af';
 
     return `
-        <div style="font-family: sans-serif; min-width: 170px; font-size: 12px; line-height: 1.5; padding: 2px;">
-            <div style="font-weight: 700; font-size: 13px; color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; margin-bottom: 4px;">
-                จ.${provinceName} <span style="font-size: 10px; color: #6b7280; font-weight: normal;">(${feature.properties.ADM1_PCODE || ''})</span>
+        <div style="font-family: sans-serif; min-width: 190px; font-size: 12px; line-height: 1.5; padding: 2px;">
+            <div style="font-weight: 700; font-size: 13px; color: #111827; border-bottom: 1px solid #e5e7eb; padding-bottom: 3px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center;">
+                <span>${title}</span>
+                <span style="font-size: 10px; color: #6b7280; font-weight: normal;">${subtitle}</span>
             </div>
             <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px;">
-                <span style="color: #4b5563;">ฝนเฉลี่ยสะสม (${periodLabel}):</span>
+                <span style="color: #4b5563;">ฝนเฉลี่ย (${periodLabel}):</span>
                 <strong style="color: ${color}; font-size: 14px;">${val != null ? val + ' มม.' : 'ไม่มีข้อมูล'}</strong>
             </div>
             <div style="font-size: 11px; color: #6b7280;">
-                จำนวนสถานีตรวจวัด: <b>${stations}</b> แห่ง
+                ${forecastRain != null ? 'แหล่งข้อมูล: แบบจำลองรายพื้นที่' : `สถานีตรวจวัดในจังหวัด: <b>${stations}</b> แห่ง`}
             </div>
-            <div style="font-size: 10px; color: #9ca3af; margin-top: 4px; border-top: 1px solid #f3f4f6; padding-top: 3px;">
-                แหล่งข้อมูล: riskmap.doae.go.th
+
+            ${noneProduceItem ? `
+            <div style="font-size: 11px; color: #4b5563; margin-top: 3px; border-top: 1px solid #f3f4f6; padding-top: 3px;">
+                <div>ยังไม่เก็บเกี่ยว: <b>${Number(noneProduceItem.total_plant || 0).toLocaleString('th-TH')}</b> ไร่</div>
+                <div>เกษตรกร: <b>${Number(noneProduceItem.total_farmers || 0).toLocaleString('th-TH')}</b> ราย</div>
+            </div>
+            ` : ''}
+
+            <div style="font-size: 10px; color: #059669; font-weight: 600; margin-top: 4px; border-top: 1px dashed #e5e7eb; padding-top: 3px;">
+                ${drillPrompt}
             </div>
         </div>
     `;
 };
 
-// ผูกเหตุการณ์กับแต่ละขอบเขตจังหวัด
+// ผูกเหตุการณ์กับแต่ละขอบเขตพื้นที่ (คลิกเพื่อเจาะลึกระดับอำเภอ/ตำบล)
 const bindBoundaryEvents = (feature, layer) => {
-    const provinceCode = normalizeAdminCode(feature.properties.ADM1_PCODE);
-    const provinceName = feature.properties.ADM1_TH || feature.properties.ADM1_EN || 'ไม่ระบุ';
+    const code = normalizeAreaCode(featureAreaCode(feature.properties));
+    provinceLayersMap.set(code, layer);
 
-    provinceLayersMap.set(provinceCode, layer);
-
-    layer.bindTooltip(() => getProvinceTooltipContent(provinceCode, provinceName, feature), {
+    layer.bindTooltip(() => getBoundaryTooltipContent(feature), {
         sticky: true,
         direction: 'auto',
         className: 'riskmap-province-tooltip'
@@ -929,9 +1678,9 @@ const bindBoundaryEvents = (feature, layer) => {
         mouseover: (e) => {
             const l = e.target;
             l.setStyle({
-                weight: 2.5,
+                weight: 2.8,
                 color: '#1f5c3f',
-                fillOpacity: 0.85
+                fillOpacity: 0.88
             });
             l.bringToFront();
         },
@@ -941,13 +1690,7 @@ const bindBoundaryEvents = (feature, layer) => {
             }
         },
         click: (e) => {
-            selectedProvinceCode.value = provinceCode;
-            if (riskmapLayer) {
-                riskmapLayer.setStyle(getBoundaryStyle);
-            }
-            if (map && e.target.getBounds().isValid()) {
-                map.fitBounds(e.target.getBounds(), { maxZoom: 9, padding: [25, 25] });
-            }
+            onFeatureClick(feature, layer);
         }
     });
 };
@@ -1068,11 +1811,15 @@ const renderTemperatureMarkers = () => {
 // ซิงค์เลเยอร์กับแผนที่ตามสถานะ checkbox (เปิด/ปิด พร้อมกันได้หลายเลเยอร์)
 const syncMapLayers = () => {
     if (!map) return;
+    if (riskmapLayer) {
+        const showPolygons = enabledLayers.riskmap || enabledLayers.forecast;
+        if (showPolygons && !map.hasLayer(riskmapLayer)) map.addLayer(riskmapLayer);
+        if (!showPolygons && map.hasLayer(riskmapLayer)) map.removeLayer(riskmapLayer);
+        riskmapLayer.setStyle(getBoundaryStyle);
+    }
     const layerMap = {
-        riskmap: riskmapLayer,
         dams: damsLayer,
         temperature: tempLayer,
-        disaster: disasterLayer
     };
     for (const [name, layer] of Object.entries(layerMap)) {
         if (!layer) continue;
@@ -1092,12 +1839,7 @@ const toggleAll = () => {
 
 // รีเซ็ตมุมมองแผนที่
 const resetMapView = () => {
-    if (!map) return;
-    selectedProvinceCode.value = null;
-    if (riskmapLayer) {
-        riskmapLayer.setStyle(getBoundaryStyle);
-    }
-    map.flyTo([13.7367, 100.5231], 6, { duration: 1 });
+    resetToCountryLevel();
 };
 
 // บินไปยังเขื่อน
@@ -1111,9 +1853,13 @@ const flyToDam = (dam) => {
 };
 
 // บินไปยังจังหวัด (RiskMap)
-const flyToProvince = (prov) => {
+const flyToProvince = async (prov) => {
     if (!map || !prov) return;
+    if (currentLevel.value !== 'province') {
+        await navigateToLevel(0);
+    }
     selectedProvinceCode.value = prov.code;
+    selectedFeatureCode.value = prov.pcodeRaw || prov.code;
     if (riskmapLayer) {
         riskmapLayer.setStyle(getBoundaryStyle);
     }
@@ -1174,14 +1920,15 @@ const zoomToRegion = (regionName) => {
     }
 };
 
-// ดึงข้อมูล API สำหรับเขื่อน, อุณหภูมิ และ RiskMap
+// ดึงข้อมูล API สำหรับเขื่อน, อุณหภูมิ, RiskMap และ คาดการณ์ความเสี่ยงภัยพิบัติ
 const loadApiData = async () => {
     isLoading.value = true;
     try {
-        const [damsRes, stationsRes, rainAvgRes] = await Promise.allSettled([
+        const [damsRes, stationsRes, rainAvgRes, forecastRes] = await Promise.allSettled([
             api.getDamWater(),
             api.getTemperatureStations(),
-            api.getRainAverage('p')
+            api.getRainAverage('p'),
+            api.getDisasterForecast(forecastHorizon.value, 'p')
         ]);
 
         if (damsRes.status === 'fulfilled' && Array.isArray(damsRes.value)) {
@@ -1198,9 +1945,14 @@ const loadApiData = async () => {
             const val = rainAvgRes.value;
             const data = Array.isArray(val) ? val : (val?.data || []);
             rawRainAverage.value = Array.isArray(data) ? data : [];
-            if (riskmapLayer) {
-                riskmapLayer.setStyle(getBoundaryStyle);
-            }
+        }
+
+        if (forecastRes.status === 'fulfilled') {
+            rawForecastData.value = forecastRes.value;
+        }
+
+        if (riskmapLayer) {
+            riskmapLayer.setStyle(getBoundaryStyle);
         }
     } catch (e) {
         console.error('Failed to load map API data:', e);

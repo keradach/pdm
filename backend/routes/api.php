@@ -65,6 +65,9 @@ Route::prefix('external')->group(function () {
 
     // riskmap.doae.go.th — ปริมาณน้ำฝนเฉลี่ย 24 ชม.
     Route::get('/rain-average', [ExternalApiController::class, 'rainAverage']);
+
+    // คาดการณ์ความเสี่ยงภัยพิบัติล่วงหน้า (Early Warning Disaster Forecast)
+    Route::get('/disaster/forecast', [ExternalApiController::class, 'disasterForecast']);
 });
 
 

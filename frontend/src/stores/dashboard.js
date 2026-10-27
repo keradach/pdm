@@ -16,7 +16,7 @@ export const useDashboardStore = defineStore("dashboard", {
     rainfallData: null,
     damWaterData: [],
     temperatureData: [],
-    mapView: "rain_avg", // 'risk' or 'rain' or 'dam' or 'rain_avg'
+    mapView: "forecast_risk", // 'risk' or 'rain' or 'dam' or 'rain_avg'
     rainfallPeriod: "today", // 'today', 'yesterday', 'last_3_days', 'last_7_days'
     rainAveragePeriod: "avg_rain_24h",
 
@@ -50,6 +50,12 @@ export const useDashboardStore = defineStore("dashboard", {
     disasterSubsidyLoading: false,
     disasterSubsidyError: null,
     disasterSubsidyRequestId: 0,
+
+    // --- คาดการณ์ความเสี่ยงภัยพิบัติล่วงหน้า (Early Warning Disaster Forecast) ---
+    forecastHorizon: "3d", // '1d', '3d', '7d'
+    disasterForecastData: null,
+    disasterForecastLoading: false,
+    disasterForecastError: null,
   }),
 
   actions: {
@@ -117,6 +123,7 @@ export const useDashboardStore = defineStore("dashboard", {
           null;
         this.fetchNoneProduce();
         this.fetchDisasterSubsidy();
+        this.fetchDisasterForecast();
       } catch (e) {
         // API not reachable yet (e.g. backend still migrating) - keep the
         // page usable with an inline error instead of a blank screen.
@@ -198,7 +205,10 @@ export const useDashboardStore = defineStore("dashboard", {
       }
 
       this.syncNoneProduceSelection();
-      await this.fetchNoneProduce();
+      await Promise.all([
+        this.fetchNoneProduce(),
+        this.fetchDisasterForecast(),
+      ]);
     },
 
     async goBackNoneProduceArea() {
@@ -208,13 +218,19 @@ export const useDashboardStore = defineStore("dashboard", {
         -1,
       );
       this.syncNoneProduceSelection();
-      await this.fetchNoneProduce();
+      await Promise.all([
+        this.fetchNoneProduce(),
+        this.fetchDisasterForecast(),
+      ]);
     },
 
     async clearNoneProduceArea() {
       this.noneProduceSelectionPath = [];
       this.syncNoneProduceSelection();
-      await this.fetchNoneProduce();
+      await Promise.all([
+        this.fetchNoneProduce(),
+        this.fetchDisasterForecast(),
+      ]);
     },
 
     syncNoneProduceSelection() {
@@ -264,7 +280,9 @@ export const useDashboardStore = defineStore("dashboard", {
       this.disasterSubsidyLoading = true;
       this.disasterSubsidyError = null;
       try {
-        const result = await api.getDisasterSubsidy(this.disasterSubsidyFilters);
+        const result = await api.getDisasterSubsidy(
+          this.disasterSubsidyFilters,
+        );
         if (requestId !== this.disasterSubsidyRequestId) return;
 
         if (areas.length && (level === "district" || level === "subdistrict")) {
@@ -304,8 +322,7 @@ export const useDashboardStore = defineStore("dashboard", {
             rows.push(...batchRows);
           }
 
-          const breakdownKey =
-            level === "district" ? "by_amphur" : "by_tambon";
+          const breakdownKey = level === "district" ? "by_amphur" : "by_tambon";
           result.summary[breakdownKey] = rows;
         }
 
@@ -319,6 +336,38 @@ export const useDashboardStore = defineStore("dashboard", {
         if (requestId === this.disasterSubsidyRequestId) {
           this.disasterSubsidyLoading = false;
         }
+      }
+    },
+
+    setForecastHorizon(horizon) {
+      if (this.forecastHorizon === horizon) return;
+      this.forecastHorizon = horizon;
+      this.fetchDisasterForecast(horizon);
+    },
+
+    async fetchDisasterForecast(horizon = null, level = null, areaCode = null) {
+      const activeHorizon = horizon || this.forecastHorizon || "3d";
+      const activeLevel = level || this.noneProduceLevel || "province";
+      const activeAreaCode =
+        areaCode !== undefined && areaCode !== null
+          ? areaCode
+          : this.noneProduceAreaCode;
+      this.disasterForecastLoading = true;
+      this.disasterForecastError = null;
+
+      try {
+        const result = await api.getDisasterForecast(
+          activeHorizon,
+          activeLevel,
+          activeAreaCode,
+        );
+        this.disasterForecastData = result;
+      } catch (e) {
+        console.error("fetchDisasterForecast error:", e);
+        this.disasterForecastError =
+          "ไม่สามารถโหลดข้อมูลคาดการณ์ความเสี่ยงภัยพิบัติได้";
+      } finally {
+        this.disasterForecastLoading = false;
       }
     },
   },

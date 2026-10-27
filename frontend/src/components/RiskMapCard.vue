@@ -22,6 +22,8 @@ const props = defineProps({
   rainAveragePeriod: { type: String, default: 'avg_rain_24h' },
   mapView: String, // 'risk', 'weather', 'dam', or 'rain_avg'
   rainfallPeriod: String, // 'today', 'yesterday', 'last_3_days', 'last_7_days'
+  forecastData: { type: Object, default: null },
+  forecastHorizon: { type: String, default: '3d' },
 });
 
 
@@ -35,6 +37,7 @@ const emit = defineEmits([
   'set-rainfall-period',
   'setRainfallPeriod',
   'set-rain-average-period',
+  'set-forecast-horizon',
 ]);
 
 // --- Leaflet Map Setup ---
@@ -218,7 +221,7 @@ const updateMap = async () => {
     renderReusableMarkers('rain', buildRainItems());
   } else if (props.mapView === 'dam') {
     renderReusableMarkers('dam', buildDamItems());
-  } else if (props.mapView === 'rain_avg') {
+  } else if (props.mapView === 'rain_avg' || props.mapView === 'forecast_risk') {
     const level = props.noneProduceLevel;
     boundaryLoading.value = true;
     try {
@@ -237,7 +240,7 @@ const updateMap = async () => {
 
       if (
         renderVersion !== boundaryRenderVersion ||
-        props.mapView !== 'rain_avg' ||
+        (props.mapView !== 'rain_avg' && props.mapView !== 'forecast_risk') ||
         props.noneProduceLevel !== level
       ) return;
 
@@ -337,6 +340,7 @@ watch(() => props.noneProduceLevel, scheduleUpdate);
 watch(() => props.noneProduceParentAreaCode, scheduleUpdate);
 watch(() => props.selectedAreaCode, scheduleUpdate);
 watch(() => props.rainAveragePeriod, scheduleUpdate);
+watch(() => props.forecastHorizon, scheduleUpdate);
 watch(
   () => [
     props.provinces,
@@ -344,6 +348,7 @@ watch(
     props.temperatureData,
     props.rainAverageData,
     props.noneProduceData,
+    props.forecastData,
   ],
   scheduleUpdate
 );
@@ -518,6 +523,13 @@ const getRainAvgColor = (val) => {
 
 const normalizeAdminCode = (code) => String(code ?? '').replace(/^TH/i, '').padStart(2, '0');
 
+const getAreaForecastRain = (forecast, periodKey) => {
+  if (!forecast) return null;
+  if (periodKey === 'avg_7d') return forecast.rain_7d ?? forecast.forecast_rain;
+  if (periodKey === 'avg_3d') return forecast.rain_3d ?? forecast.forecast_rain;
+  return forecast.rain_1d ?? forecast.forecast_rain;
+};
+
 const rainAverageByCode = () => new Map(
   props.rainAverageData.map((record) => [normalizeAdminCode(record.admin_code), record])
 );
@@ -538,11 +550,61 @@ const noneProduceByCode = () => new Map(
   ).map((record) => [record.area_code, record])
 );
 
+// ---- forecast_risk (early warning model) ----
+const forecastLevels = [
+  { level: 'critical', label: 'วิกฤต', color: '#dc3545', desc: 'เสี่ยงน้ำท่วมขังสูงมาก' },
+  { level: 'high', label: 'เสี่ยงสูง', color: '#fd7e14', desc: 'เฝ้าระวังน้ำท่วมแปลงพืช' },
+  { level: 'watch', label: 'เฝ้าระวัง', color: '#ffc107', desc: 'ติดตามสภาพอากาศ' },
+  { level: 'normal', label: 'ปกติ', color: '#198754', desc: 'ความเสี่ยงต่ำ' },
+];
+
+const getForecastRiskColor = (level) => {
+  switch (level) {
+    case 'critical': return '#dc3545';
+    case 'high': return '#fd7e14';
+    case 'watch': return '#ffc107';
+    case 'normal': return '#198754';
+    default: return '#adb5bd';
+  }
+};
+
+const forecastByCode = () => {
+  const mapObj = new Map();
+  const list = props.forecastData?.areas || props.forecastData?.provinces || [];
+  list.forEach((record) => {
+    if (record) {
+      if (record.admin_code != null) mapObj.set(normalizeAdminCode(record.admin_code), record);
+      if (record.code != null) mapObj.set(normalizeAdminCode(record.code), record);
+      if (record.area_code != null) mapObj.set(normalizeAdminCode(record.area_code), record);
+    }
+  });
+  return mapObj;
+};
+
 const getBoundaryStyle = (feature) => {
   const provinceCode = normalizeAdminCode(feature.properties.ADM1_PCODE);
-  const rain = rainAverageByCode().get(provinceCode)?.[props.rainAveragePeriod];
+  const areaCode = featureAreaCode(feature.properties);
   const selected = props.selectedAreaCode != null &&
-    featureAreaCode(feature.properties) === normalizeAdminCode(props.selectedAreaCode);
+    areaCode === normalizeAdminCode(props.selectedAreaCode);
+
+  if (props.mapView === 'forecast_risk') {
+    const forecast = forecastByCode().get(areaCode) || forecastByCode().get(provinceCode);
+    const fillColor = forecast ? getForecastRiskColor(forecast.risk_level) : '#adb5bd';
+    return {
+      color: selected ? '#212529' : '#fff',
+      weight: selected ? 2.5 : 1,
+      fillColor,
+      fillOpacity: selected ? 0.95 : (forecast ? 0.78 : 0.35),
+    };
+  }
+
+  // mapView === 'rain_avg'
+  const forecast = forecastByCode().get(areaCode);
+  const riskmapRain = rainAverageByCode().get(areaCode)?.[props.rainAveragePeriod];
+  const forecastRain = (props.noneProduceLevel !== 'province' && forecast)
+    ? getAreaForecastRain(forecast, props.rainAveragePeriod)
+    : null;
+  const rain = riskmapRain ?? forecastRain ?? rainAverageByCode().get(provinceCode)?.[props.rainAveragePeriod];
 
   return {
     color: selected ? '#212529' : '#fff',
@@ -563,26 +625,57 @@ const appendTooltipRow = (container, label, value) => {
 const bindBoundaryTooltip = (feature, layer) => {
   const code = featureAreaCode(feature.properties);
   const provinceCode = normalizeAdminCode(feature.properties.ADM1_PCODE);
-  const rain = rainAverageByCode().get(provinceCode);
   const noneProduce = noneProduceByCode().get(code);
   const levelPrefix = { province: 'ADM1', district: 'ADM2', subdistrict: 'ADM3' }[props.noneProduceLevel];
   const tooltip = document.createElement('div');
   const name = document.createElement('strong');
   name.textContent = noneProduce?.area_name || feature.properties[`${levelPrefix}_TH`];
   tooltip.append(name);
-  const periodInfo = selectedRainAveragePeriodInfo();
 
-  appendTooltipRow(tooltip, 'รหัสพื้นที่', code);
-  appendTooltipRow(tooltip, 'เกษตรกร', noneProduce
-    ? `${Number(noneProduce.total_farmers || 0).toLocaleString('th-TH')} ราย`
-    : 'ไม่มีข้อมูล');
-  appendTooltipRow(tooltip, 'พื้นที่ยังไม่เก็บเกี่ยว', noneProduce
-    ? `${Number(noneProduce.total_plant || 0).toLocaleString('th-TH')} ไร่`
-    : 'ไม่มีข้อมูล');
-  appendTooltipRow(tooltip, `ฝนเฉลี่ยสะสม (${periodInfo.label})`, rain
-    ? `${Number(rain[periodInfo.key] || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })} มม.`
-    : 'ไม่มีข้อมูล');
-  appendTooltipRow(tooltip, 'จำนวนสถานี', rain ? `${rain.station_count ?? '-'} สถานี` : 'ไม่มีข้อมูล');
+  if (props.mapView === 'forecast_risk') {
+    const forecast = forecastByCode().get(code) || forecastByCode().get(provinceCode);
+    const horizonLabel = props.forecastHorizon === '1d' ? '24 ชม.' : (props.forecastHorizon === '7d' ? '7 วัน' : '3 วัน');
+    const riskLabel = {
+      critical: '🔴 วิกฤต (เสี่ยงน้ำท่วมขังสูง)',
+      high: '🟠 เสี่ยงสูง',
+      watch: '🟡 เฝ้าระวัง',
+      normal: '🟢 ปกติ'
+    }[forecast?.risk_level] || 'ไม่มีข้อมูล';
+
+    appendTooltipRow(tooltip, 'รหัสพื้นที่', code);
+    appendTooltipRow(tooltip, 'ระดับความเสี่ยงคาดการณ์', riskLabel);
+    appendTooltipRow(tooltip, `ฝนคาดการณ์ (${horizonLabel})`, forecast ? `${forecast.forecast_rain} มม.` : 'ไม่มีข้อมูล');
+    appendTooltipRow(tooltip, 'พื้นที่พืชยังไม่เก็บเกี่ยว', forecast
+      ? `${Number(forecast.unharvested_rai || 0).toLocaleString('th-TH')} ไร่`
+      : 'ไม่มีข้อมูล');
+    appendTooltipRow(tooltip, 'กลุ่มพืชหลัก', forecast?.primary_crop || 'ไม่มีข้อมูล');
+    if (forecast?.recommendation) {
+      appendTooltipRow(tooltip, 'มาตรการแนะนำ', forecast.recommendation);
+    }
+  } else {
+    const forecast = forecastByCode().get(code);
+    const periodInfo = selectedRainAveragePeriodInfo();
+    const riskmapRain = rainAverageByCode().get(code)?.[periodInfo.key];
+    const forecastRain = (props.noneProduceLevel !== 'province' && forecast)
+      ? getAreaForecastRain(forecast, periodInfo.key)
+      : null;
+    const rain = riskmapRain ?? forecastRain ?? rainAverageByCode().get(provinceCode)?.[periodInfo.key];
+    const isLocalRain = riskmapRain != null || (props.noneProduceLevel !== 'province' && forecastRain != null);
+
+    appendTooltipRow(tooltip, 'รหัสพื้นที่', code);
+    appendTooltipRow(tooltip, 'เกษตรกร', noneProduce
+      ? `${Number(noneProduce.total_farmers || 0).toLocaleString('th-TH')} ราย`
+      : 'ไม่มีข้อมูล');
+    appendTooltipRow(tooltip, 'พื้นที่ยังไม่เก็บเกี่ยว', noneProduce
+      ? `${Number(noneProduce.total_plant || 0).toLocaleString('th-TH')} ไร่`
+      : 'ไม่มีข้อมูล');
+    appendTooltipRow(tooltip, `ฝนเฉลี่ยสะสม (${periodInfo.label})`, rain != null
+      ? `${Number(rain).toLocaleString('th-TH', { maximumFractionDigits: 1 })} มม.`
+      : 'ไม่มีข้อมูล');
+    appendTooltipRow(tooltip, 'แหล่งข้อมูลตรวจวัด', isLocalRain
+      ? (riskmapRain != null ? 'riskmap (รายพื้นที่)' : 'แบบจำลองพยากรณ์รายพื้นที่')
+      : (rainAverageByCode().get(provinceCode) ? `${rainAverageByCode().get(provinceCode).station_count ?? '-'} สถานี (เฉลี่ยระดับจังหวัด)` : 'ไม่มีข้อมูล'));
+  }
 
   layer.bindTooltip(tooltip, { sticky: true, direction: 'auto', className: 'province-data-tooltip' });
   layer.on({
@@ -612,25 +705,25 @@ const bindBoundaryTooltip = (feature, layer) => {
 
     <div class="p-0 relative">
       <div class="flex flex-wrap p-1 gap-1 max-[640px]:overflow-x-auto max-[640px]:flex-nowrap">
-        <!-- <button :class="{ active: mapView === 'risk' }"
-          @click="$emit('setMapView', 'risk')">ความเสี่ยงภัยพิบัติ</button> -->
-        <!-- <button
-          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
-          @click="$emit('setMapView', 'rain')">ปริมาณน้ำฝนจากthaiwater</button> -->
         <button
-          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'rain_avg' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
-          @click="$emit('setMapView', 'rain_avg')">ฝนเฉลี่ย 24 ชม. (riskmap)</button>
+          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap flex items-center gap-1.5 cursor-pointer transition-all', mapView === 'forecast_risk' ? 'bg-pdm-green-deep text-white font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.15)]' : 'bg-white text-muted hover:text-ink']"
+          @click="emit('set-map-view', 'forecast_risk'); emit('setMapView', 'forecast_risk')">
+          <span>⚡ คาดการณ์ความเสี่ยง</span>
+        </button>
         <button
-          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'dam' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
-          @click="$emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
+          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap cursor-pointer', mapView === 'rain_avg' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted hover:text-ink']"
+          @click="emit('set-map-view', 'rain_avg'); emit('setMapView', 'rain_avg')">ฝนเฉลี่ย 24 ชม. (riskmap)</button>
         <button
-          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap', mapView === 'temperature' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted']"
-          @click="$emit('setMapView', 'temperature')">อุณหภูมิ</button>
+          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap cursor-pointer', mapView === 'dam' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted hover:text-ink']"
+          @click="emit('set-map-view', 'dam'); emit('setMapView', 'dam')">ปริมาณน้ำในเขื่อน</button>
+        <button
+          :class="['px-4 py-1.5 rounded-[4px] text-[13px] font-medium whitespace-nowrap cursor-pointer', mapView === 'temperature' ? 'bg-page text-pdm-green-deep font-semibold shadow-[0_1px_3px_rgba(0,0,0,0.1)]' : 'bg-white text-muted hover:text-ink']"
+          @click="emit('set-map-view', 'temperature'); emit('setMapView', 'temperature')">อุณหภูมิ</button>
       </div>
 
       <div id="map-container" class="w-full h-full min-h-[500px] max-[640px]:min-h-[420px] max-[640px]:max-h-[420px]"
         ref="mapContainer"></div>
-      <div v-if="mapView === 'rain_avg'"
+      <div v-if="mapView === 'rain_avg' || mapView === 'forecast_risk'"
         class="absolute left-13 top-13 z-[1000] flex flex-wrap items-center gap-1 rounded bg-white/90 p-2 text-xs text-ink shadow">
         <span v-if="!noneProduceSelectionPath.length" class="font-medium">ทั้งประเทศ</span>
         <template v-else>
@@ -649,13 +742,61 @@ const bindBoundaryTooltip = (feature, layer) => {
           ล้างพื้นที่
         </button>
       </div>
-      <div v-if="mapView === 'rain_avg' && boundaryLoading"
+      <div v-if="(mapView === 'rain_avg' || mapView === 'forecast_risk') && boundaryLoading"
         class="absolute left-3 top-[54px] z-[1000] rounded bg-white/90 px-3 py-2 text-xs text-ink shadow">
         กำลังโหลดขอบเขตพื้นที่...
       </div>
-      <div v-if="mapView === 'rain_avg' && boundaryLoadError"
+      <div v-if="(mapView === 'rain_avg' || mapView === 'forecast_risk') && boundaryLoadError"
         class="absolute left-3 top-[54px] z-[1000] rounded bg-red-50 px-3 py-2 text-xs text-red-700 shadow">
         {{ boundaryLoadError }}
+      </div>
+
+      <!-- Legend & Horizon Control for forecast_risk -->
+      <div v-if="mapView === 'forecast_risk'"
+        class="absolute top-[50px] right-[10px] z-[1000] flex flex-col gap-[10px] max-[640px]:relative max-[640px]:top-auto max-[640px]:right-auto max-[640px]:p-[10px] max-[640px]:bg-page">
+        <div class="bg-white/95 p-[10px] rounded-[6px] shadow-[0_1px_5px_rgba(0,0,0,0.2)] w-[235px] max-[640px]:w-full border border-edge">
+          <div class="flex items-center justify-between border-b border-[#eee] pb-[5px] mb-2">
+            <h6 class="text-[0.88rem] font-bold m-0 text-ink flex items-center gap-1">
+              <span>⚡ คาดการณ์ความเสี่ยง</span>
+            </h6>
+            <span class="text-[10px] text-muted">
+              {{ forecastHorizon === '1d' ? '+24 ชม.' : (forecastHorizon === '7d' ? '+7 วัน' : '+3 วัน') }}
+            </span>
+          </div>
+
+          <div class="grid grid-cols-3 gap-1 mb-2.5">
+            <button
+              v-for="h in [
+                { key: '1d', label: '24 ชม.' },
+                { key: '3d', label: '3 วัน' },
+                { key: '7d', label: '7 วัน' }
+              ]"
+              :key="h.key"
+              type="button"
+              class="rounded border px-1.5 py-1 text-[11px] font-medium text-center transition-all cursor-pointer"
+              :class="forecastHorizon === h.key ? 'bg-pdm-green-deep border-pdm-green-deep text-white font-semibold' : 'bg-white border-[#dee2e6] text-[#495057] hover:bg-page'"
+              @click="emit('set-forecast-horizon', h.key)"
+            >
+              {{ h.label }}
+            </button>
+          </div>
+
+          <ul class="list-none p-0 m-0 text-[0.8rem] flex flex-col gap-1.5">
+            <li class="flex items-center" v-for="level in forecastLevels" :key="level.level">
+              <span class="w-[18px] h-[18px] mr-2 rounded-xs border border-[#ccc] shrink-0"
+                :style="{ backgroundColor: level.color }"></span>
+              <div class="leading-tight">
+                <span class="font-semibold text-[11px] block">{{ level.label }}</span>
+                <span class="text-[10px] text-muted block">{{ level.desc }}</span>
+              </div>
+            </li>
+          </ul>
+
+          <div class="mt-2 pt-2 border-t border-[#eee] text-[0.72rem] text-muted leading-tight">
+            โมเดล: ฝนล่วงหน้า (NWP) + ทะเบียนแปลง<br>
+            คลิกที่พื้นที่เพื่อเจาะลึกรายอำเภอ
+          </div>
+        </div>
       </div>
 
       <div v-if="mapView === 'rain'"

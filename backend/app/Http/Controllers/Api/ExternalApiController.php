@@ -145,4 +145,15 @@ class ExternalApiController extends Controller
 
         return response()->json($this->external->rainAverage($level, $adminCode, $force));
     }
+
+    // คาดการณ์ความเสี่ยงภัยพิบัติล่วงหน้า (Early Warning Disaster Forecast)
+    public function disasterForecast(Request $request): JsonResponse
+    {
+        $horizon  = $request->query('horizon', '3d');
+        $level    = $request->query('level', 'p');
+        $areaCode = $request->query('area_code', $request->query('province_code', $request->query('district_code')));
+        $force    = $request->boolean('force', false);
+
+        return response()->json($this->external->disasterForecast($horizon, $level, $areaCode, $force));
+    }
 }

@@ -82,4 +82,19 @@ export default {
       .get(`/external/rain-average?${params.toString()}`)
       .then((r) => r.data);
   },
+
+  // ---- คาดการณ์ความเสี่ยงภัยพิบัติล่วงหน้า (Early Warning Disaster Forecast) ----
+  // horizon: '1d' | '3d' | '7d'
+  // level: 'province' ('p') | 'district' ('a') | 'subdistrict' ('t')
+  // areaCode: รหัสจังหวัด (2 หลัก) หรือรหัสอำเภอ (4 หลัก)
+  getDisasterForecast: (horizon = "3d", level = "p", areaCode = null) => {
+    const params = new URLSearchParams({ horizon, level });
+    if (areaCode) {
+      params.set("area_code", areaCode);
+      params.set("province_code", areaCode);
+    }
+    return api
+      .get(`/external/disaster/forecast?${params.toString()}`)
+      .then((r) => r.data);
+  },
 };
