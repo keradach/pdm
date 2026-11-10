@@ -160,13 +160,21 @@ class ExternalApiService
         // นำข้อมูลที่ได้มาบันทึกเก็บไว้ใน DB
         if ($payload !== null) {
             try {
-                if ($cached) {
-                    $cached->update(['payload' => $payload, 'fetched_at' => $now]);
-                } else {
-                    ApiCache::create(['endpoint' => $endpoint, 'payload' => $payload, 'fetched_at' => $now]);
-                }
+                ApiCache::updateOrCreate(
+                    ['endpoint' => $endpoint],
+                    ['payload' => $payload, 'fetched_at' => $now]
+                );
             } catch (\Throwable $e) {
-                Log::error("Failed saving ApiCache for {$endpoint}: " . $e->getMessage());
+                // หากเกิดกรณี Race Condition (อีก Process เพิ่ง Insert ตัดหน้าไปเสี้ยววินาที)
+                // ให้ fallback เป็น update ข้อมูลของแถวนั้นแทน จะไม่ทำให้เกิด ORA-00001
+                try {
+                    ApiCache::where('endpoint', $endpoint)->update([
+                        'payload' => $payload,
+                        'fetched_at' => $now,
+                    ]);
+                } catch (\Throwable $updateEx) {
+                    Log::error("Failed saving ApiCache for {$endpoint}: " . $updateEx->getMessage());
+                }
             }
         }
 
@@ -475,7 +483,7 @@ class ExternalApiService
     public function disasterForecast(string $horizon = '3d', string $level = 'p', ?string $areaCode = null, bool $force = false): mixed
     {
         $horizon = in_array($horizon, ['1d', '3d', '7d']) ? $horizon : '3d';
-        $normLevel = match(strtolower($level)) {
+        $normLevel = match (strtolower($level)) {
             'district', 'amphur', 'amphoe', 'a', 'd' => 'district',
             'subdistrict', 'tambon', 't', 's' => 'subdistrict',
             default => 'province',
@@ -619,7 +627,7 @@ class ExternalApiService
                     if ($normLevel === 'subdistrict' && $distCode) {
                         $parentSeed = hexdec(substr(md5($distCode . date('Y-m-d')), 0, 4));
                         $subSeed = hexdec(substr(md5($code . date('Y-m-d')), 0, 4));
-                        
+
                         $baseRain1d = round(($parentSeed % 45) * 1.2, 1);
                         if (in_array($provCode, ['57', '55', '54', '65', '64', '34', '90', '92'])) {
                             $baseRain1d += 35;
