@@ -23,7 +23,7 @@ async function handleLogout() {
           class="text-lg font-bold flex items-center gap-2 flex-wrap leading-snug max-[640px]:text-[15px] max-[640px]:block">
           PDMC <span class="opacity-50 max-[640px]:hidden">|</span>
           <span class="th text-[15px] font-medium max-[640px]:block max-[640px]:mt-0.5 max-[640px]:text-xs">
-            ศูนย์ปฏิบัติการติดตามและแก้ไขปัญหาภัยพิบัติด้านพืช (ศตก)
+            ศูนย์ปฏิบัติการติดตามและแก้ไขปัญหาภัยพิบัติด้านพืช (ศตภ)
           </span>
         </h1>
         <p class="subtitle mt-0.5 text-xs opacity-[0.85] max-[640px]:text-[10px]">
