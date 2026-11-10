@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { getNoneProduceDisplayRows } from '@/utils/noneProduce'
 
 const props = defineProps({
@@ -24,6 +24,31 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['update:date', 'set-map-view'])
+
+// ฟังก์ชันจัดการและปุ่มลัดวันที่
+const formatDateStr = (d) => {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+const getRelativeDate = (offsetDays = 0) => {
+  const d = new Date()
+  d.setDate(d.getDate() + offsetDays)
+  return formatDateStr(d)
+}
+
+const quickDatePresets = [
+  { label: 'วันนี้', days: 0 },
+  { label: '+1 วัน', days: 1 },
+  { label: '+3 วัน', days: 3 },
+  { label: '+7 วัน', days: 7 },
+]
+
+const selectDatePreset = (days) => {
+  emit('update:date', getRelativeDate(days))
+}
 
 // โหมดการแสดงผลข้อมูลฝน: 'actual' (ฝนตรวจวัดจริง) หรือ 'forecast' (ฝนคาดการณ์ล่วงหน้า)
 const rainDisplayMode = ref('forecast')
@@ -103,10 +128,31 @@ const getPeriodRainFromForecast = (forecast, period) => {
   return forecast.rain_1d ?? forecast.forecast_rain
 }
 
-// รายการ sort ตาม total_plant มากสุดก่อน + แนบข้อมูลฝน
-const rows = computed(() =>
+// สถานะการเรียงลำดับ (เริ่มต้น: คาดการณ์ความเสี่ยง สูงไปต่ำ)
+const sortState = reactive({
+  key: 'risk',
+  order: 'desc',
+})
+
+const toggleSort = (key) => {
+  if (sortState.key === key) {
+    sortState.order = sortState.order === 'desc' ? 'asc' : 'desc'
+  } else {
+    sortState.key = key
+    sortState.order = key === 'name' ? 'asc' : 'desc'
+  }
+}
+
+const riskWeight = {
+  critical: 4,
+  high: 3,
+  watch: 2,
+  normal: 1,
+}
+
+// รายการข้อมูลพืชยังไม่เก็บเกี่ยว พร้อมแนบข้อมูลฝนและความเสี่ยง
+const mappedRows = computed(() =>
   getNoneProduceDisplayRows(props.data, props.level, props.parentAreaCode)
-    .sort((a, b) => Number(b.total_plant) - Number(a.total_plant))
     .map(item => {
       const areaCode = normalizeAdminCode(item.area_code || item.district_code || item.subdistrict_code || item.province_code)
       const pCode = normalizeAdminCode(item.province_code)
@@ -129,10 +175,69 @@ const rows = computed(() =>
         avg_rain: Number.isFinite(numericRain) ? numericRain : null,
         forecast_rain: forecastItem ? forecastItem.forecast_rain : null,
         risk_level: forecastItem ? forecastItem.risk_level : null,
-        risk_score: forecastItem ? forecastItem.risk_score : null,
+        risk_score: forecastItem?.risk_score != null ? Number(forecastItem.risk_score) : null,
       }
     })
 )
+
+// รายการ sort ตามเงื่อนไขที่เลือก (เริ่มต้น: เรียงจากความเสี่ยงสูงไปต่ำ)
+const rows = computed(() => {
+  const isDesc = sortState.order === 'desc'
+
+  return [...mappedRows.value].sort((a, b) => {
+    if (sortState.key === 'name') {
+      const nameA = String(a.area_name || '')
+      const nameB = String(b.area_name || '')
+      const comp = nameA.localeCompare(nameB, 'th')
+      return isDesc ? -comp : comp
+    }
+
+    if (sortState.key === 'farmers') {
+      const fA = Number(a.total_farmers) || 0
+      const fB = Number(b.total_farmers) || 0
+      return isDesc ? fB - fA : fA - fB
+    }
+
+    if (sortState.key === 'plant') {
+      const pA = Number(a.total_plant) || 0
+      const pB = Number(b.total_plant) || 0
+      return isDesc ? pB - pA : pA - pB
+    }
+
+    if (sortState.key === 'risk') {
+      if (rainDisplayMode.value === 'actual') {
+        const rA = a.avg_rain != null ? Number(a.avg_rain) : -1
+        const rB = b.avg_rain != null ? Number(b.avg_rain) : -1
+        return isDesc ? rB - rA : rA - rB
+      }
+
+      // คาดการณ์ความเสี่ยง (forecast mode): วิกฤต > เสี่ยงสูง > เฝ้าระวัง > ปกติ > ไม่มีข้อมูล
+      const wA = riskWeight[a.risk_level] || 0
+      const wB = riskWeight[b.risk_level] || 0
+      if (wA !== wB) {
+        return isDesc ? wB - wA : wA - wB
+      }
+
+      const sA = a.risk_score != null ? Number(a.risk_score) : -1
+      const sB = b.risk_score != null ? Number(b.risk_score) : -1
+      if (sA !== sB && (sA !== -1 || sB !== -1)) {
+        return isDesc ? sB - sA : sA - sB
+      }
+
+      const rainA = Number(a.forecast_rain) || 0
+      const rainB = Number(b.forecast_rain) || 0
+      if (rainA !== rainB) {
+        return isDesc ? rainB - rainA : rainA - rainB
+      }
+
+      const plantA = Number(a.total_plant) || 0
+      const plantB = Number(b.total_plant) || 0
+      return isDesc ? plantB - plantA : plantA - plantB
+    }
+
+    return 0
+  })
+})
 
 const sumAllFarmers = computed(() => {
   const value = props.sumAll?.total_farmers ?? props.sumAll?.totalFarmers
@@ -194,12 +299,31 @@ function riskBadgeStyle(level) {
         <span>พื้นที่เกษตรยังไม่เก็บเกี่ยว</span>
       </h2>
 
-      <!-- Date filter -->
+      <!-- Date filter with quick presets -->
       <div class="flex flex-wrap items-center gap-1.5 min-w-0 max-w-full">
         <label for="noneproduce-date"
           class="text-[11px] text-muted whitespace-nowrap shrink-0">วันที่คาดว่าเกิดภัย</label>
+
+        <!-- Quick date presets -->
+        <div class="inline-flex rounded border border-edge bg-page p-0.5 text-[11px]">
+          <button
+            v-for="preset in quickDatePresets"
+            :key="preset.days"
+            type="button"
+            :class="[
+              'px-1.5 py-0.5 rounded transition-all cursor-pointer text-[10px] font-medium leading-none',
+              date === getRelativeDate(preset.days)
+                ? 'bg-pdm-green-deep text-white font-semibold shadow-xs'
+                : 'text-muted hover:text-ink hover:bg-white/60'
+            ]"
+            @click="selectDatePreset(preset.days)"
+          >
+            {{ preset.label }}
+          </button>
+        </div>
+
         <input id="noneproduce-date" :value="date" type="date"
-          class="min-w-0 max-w-full border border-edge rounded px-2 py-0.5 text-[12px] text-ink bg-white focus:outline-none focus:ring-1 focus:ring-pdm-green-deep"
+          class="min-w-0 max-w-full border border-edge rounded px-2 py-0.5 text-[12px] text-ink bg-white focus:outline-none focus:ring-1 focus:ring-pdm-green-deep cursor-pointer"
           @change="emit('update:date', $event.target.value)" />
       </div>
     </div>
@@ -269,16 +393,63 @@ function riskBadgeStyle(level) {
         <table class="w-full text-[12px] text-left">
           <thead>
             <tr class="bg-pdm-green-deep text-white">
-              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold">#</th>
-              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold">{{ levelLabels[level] ||
-                levelLabels.province }}</th>
-              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-right">เกษตรกร (ราย)</th>
-              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-right">พื้นที่ (ไร่)</th>
-              <th v-if="rainDisplayMode === 'forecast'" class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-center">
-                คาดการณ์ฝน & ความเสี่ยง
+              <th class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-center w-10">#</th>
+              
+              <!-- ชื่อจังหวัด / อำเภอ / ตำบล -->
+              <th
+                class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold cursor-pointer select-none transition-colors hover:bg-[#184a32]"
+                :title="`คลิกเพื่อเรียงตามชื่อ${levelLabels[level] || levelLabels.province}`"
+                @click="toggleSort('name')"
+              >
+                <div class="flex items-center justify-between gap-1">
+                  <span>{{ levelLabels[level] || levelLabels.province }}</span>
+                  <span class="text-xs" :class="sortState.key === 'name' ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === 'name' ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
               </th>
-              <th v-else class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-center">
-                ฝนเฉลี่ย {{ rainfallPeriodLabel }} (มม.)
+
+              <!-- เกษตรกร (ราย) -->
+              <th
+                class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-right cursor-pointer select-none transition-colors hover:bg-[#184a32]"
+                title="คลิกเพื่อเรียงตามจำนวนเกษตรกร"
+                @click="toggleSort('farmers')"
+              >
+                <div class="flex items-center justify-end gap-1">
+                  <span>เกษตรกร (ราย)</span>
+                  <span class="text-xs" :class="sortState.key === 'farmers' ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === 'farmers' ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
+              </th>
+
+              <!-- พื้นที่ (ไร่) -->
+              <th
+                class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-right cursor-pointer select-none transition-colors hover:bg-[#184a32]"
+                title="คลิกเพื่อเรียงตามพื้นที่"
+                @click="toggleSort('plant')"
+              >
+                <div class="flex items-center justify-end gap-1">
+                  <span>พื้นที่ (ไร่)</span>
+                  <span class="text-xs" :class="sortState.key === 'plant' ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === 'plant' ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
+              </th>
+
+              <!-- คาดการณ์ความเสี่ยง / ฝนสะสม -->
+              <th
+                class="sticky top-0 z-10 bg-pdm-green-deep px-3 py-2 font-semibold text-center cursor-pointer select-none transition-colors hover:bg-[#184a32]"
+                :title="rainDisplayMode === 'forecast' ? 'คลิกเพื่อเรียงตามระดับความเสี่ยง' : 'คลิกเพื่อเรียงตามปริมาณฝน'"
+                @click="toggleSort('risk')"
+              >
+                <div class="flex items-center justify-center gap-1">
+                  <span v-if="rainDisplayMode === 'forecast'">คาดการณ์ฝน & ความเสี่ยง</span>
+                  <span v-else>ฝนเฉลี่ย {{ rainfallPeriodLabel }} (มม.)</span>
+                  <span class="text-xs" :class="sortState.key === 'risk' ? 'text-white' : 'text-white/40'">
+                    {{ sortState.key === 'risk' ? (sortState.order === 'asc' ? '▲' : '▼') : '↕' }}
+                  </span>
+                </div>
               </th>
             </tr>
           </thead>

@@ -1,6 +1,14 @@
 import { defineStore } from "pinia";
 import api, { API_ENABLED, API_DISABLED_MESSAGE } from "@/services/api";
 
+const getTodayDateString = () => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
 export const useDashboardStore = defineStore("dashboard", {
   state: () => ({
     loading: false,
@@ -23,7 +31,7 @@ export const useDashboardStore = defineStore("dashboard", {
     // --- ใหม่: พื้นที่ยังไม่เก็บเกี่ยว (efarmer.doae.go.th) ---
     noneProduceData: [],
     noneProduceSumAll: null,
-    noneProduceDate: "2026-09-25",
+    noneProduceDate: getTodayDateString(),
     noneProduceLevel: "province",
     noneProduceAreaCode: null,
     noneProduceParentAreaCode: null,
