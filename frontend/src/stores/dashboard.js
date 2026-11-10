@@ -92,7 +92,7 @@ export const useDashboardStore = defineStore("dashboard", {
           // api.getRainYesterday(),
           // api.getRain3d(),
           // api.getRain7d(),
-          api.getDamWater(),
+          api.getDamWater().catch(() => []),
           api.getTemperatureStations().catch(() => []),
           api.getRainAverage("p").catch(() => ({ data: [] })),
         ]);
