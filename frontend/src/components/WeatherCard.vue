@@ -72,16 +72,36 @@ async function fetchWeatherData() {
       rainChance: daily.precipitation_probability_max[index],
     }));
 
-    if (locationResult.status === "fulfilled" && locationResult.value) {
-      const { address = {} } = locationResult.value;
-      const subdistrict = address.suburb;
-      const district = address.quarter;
-      const province = address.city;
-      locationName.value = [
-        province && `จ.${province.replace(/^จังหวัด/, "")}`,
-        district && `อ.${district.replace(/^(อำเภอ|เขต)/, "")}`,
-        subdistrict && `ต.${subdistrict.replace(/^(ตำบล|แขวง)/, "")}`
-      ].filter(Boolean).join(" ") || "ไม่พบข้อมูลพื้นที่";
+    if (
+      locationResult.status === "fulfilled" &&
+      locationResult.value &&
+      locationResult.value.result !== "FAILED"
+    ) {
+      const { address = {}, display_name } = locationResult.value;
+
+      // 1. ดึงข้อมูลพร้อม fallback หลาย field ของ Nominatim / BigDataCloud
+      const province = address.province || address.state || address.city || "";
+      const district = address.county || address.district || address.city_district || "";
+      const subdistrict = address.subdistrict || address.suburb || address.village || address.neighbourhood || "";
+
+      // 2. เช็คว่าเป็นกรุงเทพฯ หรือไม่ เพื่อเลือกใช้ เขต/แขวง หรือ อ./ต.
+      const isBkk = province.includes("กรุงเทพ") || address.city === "กรุงเทพมหานคร";
+
+      const cleanProvince = province.replace(/^(จังหวัด|จ\.)\s*/, "").trim();
+      const cleanDistrict = district.replace(/^(อำเภอ|เขต|อ\.)\s*/, "").trim();
+      const cleanSubdistrict = subdistrict.replace(/^(ตำบล|แขวง|ต\.)\s*/, "").trim();
+
+      // 3. ประกอบข้อความ (จัดเรียง ต. -> อ. -> จ.)
+      const parts = [
+        cleanSubdistrict && (isBkk ? `แขวง${cleanSubdistrict}` : `ต.${cleanSubdistrict}`),
+        cleanDistrict && (isBkk ? `เขต${cleanDistrict}` : `อ.${cleanDistrict}`),
+        cleanProvince && (isBkk ? "กรุงเทพมหานคร" : `จ.${cleanProvince}`),
+      ].filter(Boolean);
+
+      // 4. กรณีหาแยกส่วนไม่ได้ ให้ใช้ display_name หรือข้อความ fallback
+      locationName.value = parts.length > 0
+        ? parts.join(" ")
+        : (display_name ? display_name.split(",").slice(0, 3).join(" ") : "ไม่พบข้อมูลพื้นที่");
     } else {
       locationName.value = "ไม่สามารถระบุชื่อพื้นที่ได้";
     }
@@ -163,7 +183,8 @@ onMounted(() => loadWeather(false));
         class="flex flex-col gap-1 rounded-lg border border-edge bg-page/60 px-2 py-2 text-xs hover:bg-page transition-colors">
         <!-- แถวบน: วันที่ + สภาพอากาศเต็มข้อความ -->
         <div class="flex items-start gap-1.5">
-          <span class="rounded bg-pdm-green-deep px-1.5 py-0.5 text-[10px] font-semibold text-white shrink-0 leading-4 mt-0.5">
+          <span
+            class="rounded bg-pdm-green-deep px-1.5 py-0.5 text-[10px] font-semibold text-white shrink-0 leading-4 mt-0.5">
             {{ formatDate(day.date) }}
           </span>
           <span class="text-[11px] font-medium text-ink leading-[1.35] break-words min-w-0">

@@ -378,14 +378,73 @@ class ExternalApiService
 
     public function reverseGeocode(float $latitude, float $longitude, bool $force = false): mixed
     {
-        $coords = sprintf('%.6f,%.6f', $latitude, $longitude);
-        $url = sprintf(
-            'https://nominatim.openstreetmap.org/reverse?lat=%s&lon=%s&format=jsonv2&addressdetails=1&zoom=14&accept-language=th',
-            $latitude,
-            $longitude
-        );
+        // ปัดเศษพิกัดเหลือ 3 ตำแหน่ง (~110 เมตร) เพื่อให้ Hit Cache ได้จริง ไม่ยิงซ้ำซ้อนจาก GPS Jitter
+        $latRounded = round($latitude, 3);
+        $lngRounded = round($longitude, 3);
+        $coords = sprintf('%.3f,%.3f', $latRounded, $lngRounded);
 
-        return $this->fetch('nominatim:reverse:' . $coords, fn() => $this->httpGet($url, 30), 86400, $force);
+        return $this->fetch('geocode:reverse:' . $coords, function () use ($latRounded, $lngRounded) {
+            // 1. ลองเรียก OSM Nominatim ด้วย Header ที่ถูกต้องตามนโยบาย (ระบุ App User-Agent)
+            try {
+                $nominatimUrl = sprintf(
+                    'https://nominatim.openstreetmap.org/reverse?lat=%s&lon=%s&format=jsonv2&addressdetails=1&zoom=14&accept-language=th',
+                    $latRounded,
+                    $lngRounded
+                );
+
+                $response = Http::timeout(6)
+                    ->withHeaders([
+                        'User-Agent' => 'PDM-Disaster-Monitor/1.0 (contact: admin@doae.go.th)',
+                        'Accept'     => 'application/json',
+                    ])
+                    ->withoutVerifying()
+                    ->get($nominatimUrl);
+
+                if ($response->successful()) {
+                    return $response->json();
+                }
+
+                Log::warning("Nominatim returned HTTP {$response->status()} for reverse geocode.");
+            } catch (\Throwable $e) {
+                Log::warning("Nominatim geocode failed: " . $e->getMessage());
+            }
+
+            // 2. สำรองด้วย BigDataCloud Reverse Geocoding (ฟรี ไม่มี Rate-Limit เข้มงวด และรองรับภาษาไทย)
+            try {
+                $bdcUrl = sprintf(
+                    'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=%s&longitude=%s&localityLanguage=th',
+                    $latRounded,
+                    $lngRounded
+                );
+
+                $bdcRes = Http::timeout(6)
+                    ->withoutVerifying()
+                    ->get($bdcUrl);
+
+                if ($bdcRes->successful()) {
+                    $bdc = $bdcRes->json();
+                    return [
+                        'display_name' => implode(', ', array_filter([
+                            $bdc['locality'] ?? null,
+                            $bdc['city'] ?? null,
+                            $bdc['principalSubdivision'] ?? null,
+                        ])),
+                        'address' => [
+                            'subdistrict' => $bdc['locality'] ?? null,
+                            'district'    => $bdc['city'] ?? null,
+                            'province'    => $bdc['principalSubdivision'] ?? null,
+                            'country'     => $bdc['countryName'] ?? null,
+                        ],
+                    ];
+                }
+
+                Log::warning("BigDataCloud returned HTTP {$bdcRes->status()} for reverse geocode.");
+            } catch (\Throwable $e) {
+                Log::warning("BigDataCloud fallback failed: " . $e->getMessage());
+            }
+
+            throw new \Exception("All reverse geocode providers failed");
+        }, 86400 * 30, $force);
     }
 
     /**
