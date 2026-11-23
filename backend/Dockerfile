@@ -4,7 +4,7 @@
 # Base image can be overridden via build arg (e.g. php:8.5.12-fpm-bookworm).
 # Default is pinned to a stable Debian release (bookworm) so that the
 # `libaio1` package (renamed to libaio1t64 on trixie) is still available.
-ARG PHP_BASE_IMAGE=php:8.5.12-fpm-bookworm
+ARG PHP_BASE_IMAGE=php:8.5.13-fpm-bookworm
 FROM ${PHP_BASE_IMAGE} AS base
 
 # NOTE: Oracle publishes Instant Client RPMs for BOTH x86_64 and aarch64 under
